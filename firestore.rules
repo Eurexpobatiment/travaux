@@ -127,6 +127,25 @@ service cloud.firestore {
                               || (request.resource.data.type == 'statut' && request.resource.data.texte == 'Demande déposée'))));
         allow update, delete: if member();
       }
+
+      // Pièces jointes gardées dans l'appli (en morceaux), jusqu'à ce que le Bâtiment les enregistre dans un dossier
+      match /Fichiers/{fid} {
+        allow read: if true;              // avec la clé secrète
+        allow create: if request.resource.data.keys().hasOnly(['id', 'nom', 'type', 'parts', 'taille', 'le'])
+                      && request.resource.data.id == fid && request.resource.data.parts is int
+                      && request.resource.data.parts >= 1 && request.resource.data.parts <= 60
+                      && dtTxt(request.resource.data, 'nom', 1, 200)
+                      && exists(/databases/$(db)/documents/Demandes/$(cle));
+        allow delete: if member();
+        match /Parts/{i} {
+          allow read: if true;
+          allow create: if request.resource.data.keys().hasOnly(['i', 'data']) && request.resource.data.i is int
+                        && string(request.resource.data.i) == i && request.resource.data.data is string
+                        && request.resource.data.data.size() <= 700000
+                        && request.resource.data.i < get(/databases/$(db)/documents/Demandes/$(cle)/Fichiers/$(fid)).data.parts;
+          allow delete: if member();
+        }
+      }
     }
 
     // Note interne du Bâtiment : jamais visible par le demandeur

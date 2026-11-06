@@ -241,14 +241,63 @@ export async function comment(p) {
   return Object.assign(o, { warn });
 }
 
+/* Pièces jointes : gardées dans Firebase (Demandes/{cle}/Fichiers/{fid} + morceaux Parts/{i}),
+ * en attendant que le Bâtiment les enregistre dans le dossier de son choix. Rien n'est envoyé dans Drive. */
+const PART = 700000; // caractères base64 par morceau (un document Firestore fait 1 Mo au plus)
+async function stocker(cle, f, auteur, t) {
+  const fid = hex(8), data = String(f.data || '');
+  const nb = Math.max(1, Math.ceil(data.length / PART));
+  const fref = F.doc(db, 'Demandes', cle, 'Fichiers', fid);
+  await wrap(F.setDoc(fref, { id: fid, nom: clean(f.name, 150) || 'fichier', type: clean(f.type, 100) || 'application/octet-stream', parts: nb, taille: Math.round(data.length * 0.75), le: t }));
+  for (let i = 0; i < nb; i += 8) {
+    const b = F.writeBatch(db);
+    for (let j = i; j < Math.min(nb, i + 8); j++) b.set(F.doc(db, 'Demandes', cle, 'Fichiers', fid, 'Parts', String(j)), { i: j, data: data.slice(j * PART, (j + 1) * PART) });
+    await wrap(b.commit());
+  }
+  return { cat: clean(f.cat, 30) || 'Autres', nom: clean(f.name, 150) || 'fichier', fid, type: clean(f.type, 100), par: auteur, le: t, taille: Math.round(data.length * 0.75) };
+}
+
+// Contenu d'une pièce jointe (Blob)
+export async function fichier(cle, fid) {
+  const m = await wrap(F.getDoc(F.doc(db, 'Demandes', cle, 'Fichiers', fid)));
+  if (!m.exists()) throw new Error('Fichier introuvable (retiré de l\'appli ?)');
+  const q = await wrap(F.getDocs(F.collection(db, 'Demandes', cle, 'Fichiers', fid, 'Parts')));
+  const b64 = q.docs.map(d => d.data()).sort((a, b) => a.i - b.i).map(x => x.data).join('');
+  const bin = atob(b64), u = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+  return { blob: new Blob([u], { type: m.data().type || 'application/octet-stream' }), nom: m.data().nom };
+}
+export const cleDe = id => cleOf(id);
+
+// Bâtiment : note où les fichiers ont été enregistrés · retirer = efface aussi la copie gardée dans l'appli
+export async function classer(id, fids, dossier, retirer) {
+  const cle = await cleOf(id);
+  const t = now_();
+  await wrap(F.runTransaction(db, async tx => {
+    const s = await tx.get(dRef(cle));
+    if (!s.exists()) throw new Error('Demande introuvable');
+    const L = parse(s.data().fichiers).map(f => fids.includes(f.fid) ? Object.assign({}, f, { classe: dossier, classeLe: t, classePar: me }, retirer ? { retire: 'oui' } : {}) : f);
+    tx.update(dRef(cle), { fichiers: JSON.stringify(L), majLe: t, majPar: me });
+  }));
+  if (retirer) for (const fid of fids) {
+    const q = await wrap(F.getDocs(F.collection(db, 'Demandes', cle, 'Fichiers', fid, 'Parts')));
+    const b = F.writeBatch(db);
+    q.docs.forEach(d => b.delete(d.ref));
+    b.delete(F.doc(db, 'Demandes', cle, 'Fichiers', fid));
+    await wrap(b.commit());
+  }
+}
+
 // p : {id?, cle?, files:[{cat,name,type,data(base64)}]}
 export async function upload(p, auteurDem) {
   const bat = !p.cle;
   const cle = bat ? await cleOf(p.id) : p.cle;
   if (!p.files || !p.files.length) return [];
-  const auteur = bat ? me : (auteurDem || '');
-  const ajout = await script('fbUpload', { cle, files: p.files, auteur });
   const sid = hex(5), t = now_();
+  let auteur = bat ? me : (auteurDem || '');
+  if (!auteur) { const s = await wrap(F.getDoc(dRef(cle))); auteur = (s.exists() && s.data().demandeur) || 'Demandeur'; }
+  const ajout = [];
+  for (const f of p.files) ajout.push(await stocker(cle, f, auteur, t));
   let L = [];
   await wrap(F.runTransaction(db, async tx => {
     const s = await tx.get(dRef(cle));
@@ -266,6 +315,12 @@ export async function remove(id) {
   const cle = await cleOf(id);
   const s = await wrap(F.getDoc(dRef(cle)));
   const q = await wrap(F.getDocs(F.collection(db, 'Demandes', cle, 'Suivi')));
+  // pièces jointes gardées dans l'appli (morceaux par morceaux : un envoi peut être lourd)
+  const fq = await wrap(F.getDocs(F.collection(db, 'Demandes', cle, 'Fichiers')));
+  for (const f of fq.docs) {
+    const pq = await wrap(F.getDocs(F.collection(db, 'Demandes', cle, 'Fichiers', f.id, 'Parts')));
+    const bb = F.writeBatch(db); pq.docs.forEach(x => bb.delete(x.ref)); bb.delete(f.ref); await wrap(bb.commit());
+  }
   const b = F.writeBatch(db);
   q.docs.forEach(x => b.delete(x.ref));
   b.delete(F.doc(db, 'DemandesInt', cle));

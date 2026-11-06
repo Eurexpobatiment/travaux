@@ -88,7 +88,6 @@ function handle_(p) {
       case 'fbNouvelle': fbUrl_(p); return out_({ ok: true, data: fbNouvelle_(p) });
       case 'fbMsgDem':   fbUrl_(p); return out_({ ok: true, data: fbMsgDem_(p) });
       case 'fbMail':     fbUrl_(p); return out_({ ok: true, data: fbMail_(p) });
-      case 'fbUpload':   return out_({ ok: true, data: fbUpload_(p) });
       default: throw new Error('Action inconnue : ' + p.action);
     }
   } catch (err) {
@@ -437,8 +436,8 @@ function frD_(s) { s = String(s || ''); return s ? s.slice(8, 10) + '/' + s.slic
 
 
 /* ======================= Version Firebase =======================
- * Les demandes sont dans Firestore (projet partagé avec l'appli Équipe). L'appli appelle le script
- * seulement pour les e-mails et pour ranger les pièces jointes dans Drive.
+ * Les demandes et leurs pièces jointes sont dans Firestore (projet partagé avec l'appli Équipe).
+ * L'appli appelle le script seulement pour les e-mails (rien n'est rangé dans Drive).
  * Le script relit chaque fois la demande dans Firestore : il n'envoie que ce qui y est réellement enregistré.
  * Première fois : exécuter « autoriserFirebase » dans l'éditeur, puis Déployer › Gérer les déploiements › Nouvelle version.
  */
@@ -449,7 +448,6 @@ function autoriserFirebase() {
   const r = UrlFetchApp.fetch('https://firestore.googleapis.com/v1/projects/' + FIREBASE_PROJECT + '/databases/(default)/documents/Compteurs/dt-test', { muteHttpExceptions: true });
   Logger.log('Firestore répond : ' + r.getResponseCode() + ' (404 = normal, l\'accès fonctionne)');
   Logger.log('E-mails restants aujourd\'hui : ' + MailApp.getRemainingDailyQuota());
-  dossier_();
 }
 
 function fbUrl_(p) {
@@ -546,13 +544,4 @@ function fbMail_(p) {
   } else if (s.type === 'batiment') mailMessage_(d, s.texte);
   else return { envoye: false };
   return { envoye: true };
-}
-
-// Pièces jointes : rangées dans Drive, l'appli enregistre ensuite la liste dans Firestore
-function fbUpload_(p) {
-  const cle = cleOk_(p.cle);
-  const d = fsGet_('Demandes/' + cle);
-  if (!p.files || !p.files.length) return [];
-  const auteur = clean_(p.auteur, 80) || d.demandeur || 'Demandeur';
-  return withLock_(function () { return saveFiles_(d, p.files, auteur, []); });
 }

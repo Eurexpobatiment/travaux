@@ -208,7 +208,7 @@ const CONFIG = {
   // Bouton « Reprendre le Google Sheet » pour les responsables (pendant la transition)
   reprise: true
 };
-const FB_VER = '1'; // à augmenter à chaque modification de fb.js
+const FB_VER = '2'; // à augmenter à chaque modification de fb.js
 
 /* ======================= STRUCTURE DE LA FICHE ======================= */
 // Reprend les lignes du « Formulaire de demande travaux V2 »
@@ -578,7 +578,7 @@ function valText(d,f){
   if(f.moreK&&d[f.moreK]) v+=(v?' — ':'')+d[f.moreK];
   if(f.type==='file'){
     const fs=(d.fichiers||[]).filter(x=>x.cat===f.cat);
-    return {html:fs.map(x=>`<div>📎 <a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.nom)}</a></div>`).join('')+(v?`<div>${esc(v)}</div>`:''), txt:fs.map(x=>x.nom).join('\n')+(v?(fs.length?'\n':'')+v:'')};
+    return {html:fs.map(x=>`<div>📎 ${pjLien(x)}</div>`).join('')+(v?`<div>${esc(v)}</div>`:''), txt:fs.map(x=>x.nom).join('\n')+(v?(fs.length?'\n':'')+v:'')};
   }
   return {html:esc(v),txt:v};
 }
@@ -606,14 +606,62 @@ function msgsHtml(list,bat){
     return `<div class="msg ${cls}"><div class="h">${head} · ${fDT(s.date)}</div><div class="t">${esc(s.texte)}</div></div>`;
   }).join('')}</div>`;
 }
+// Lien d'une pièce jointe : ancienne (Drive), gardée dans l'appli, ou déjà enregistrée dans un dossier
+function pjLien(x){
+  if(x.url) return `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.nom)}</a>`;
+  if(x.fid&&x.retire!=='oui') return `<a href="#" onclick="dlFile('${esc(x.fid)}',this);return false">${esc(x.nom)}</a>`;
+  return esc(x.nom);
+}
 function filesPanel(d,who){
   const fs=d.fichiers||[];
+  const aClasser=fs.filter(x=>x.fid&&x.retire!=='oui');
   return `<div class="panel"><h3>📎 Pièces jointes (${fs.length})</h3>
-    ${fs.length?`<div class="files">${fs.map(x=>`<div class="file">📄<span class="nm"><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.nom)}</a></span><span class="hint">${esc(x.cat)} · ${esc(x.par||'')} · ${fD(x.le)}</span></div>`).join('')}</div>`:'<div class="empty">Aucune pièce jointe.</div>'}
+    ${fs.length?`<div class="files">${fs.map(x=>`<div class="file">📄<span class="nm">${pjLien(x)}</span><span class="hint">${esc(x.cat)} · ${esc(x.par||'')} · ${fD(x.le)}${who==='bat'&&x.classe?` · <b style="color:var(--ok)">📁 ${esc(x.classe)}</b>${x.retire==='oui'?' (plus dans l’appli)':''}`:''}</span></div>`).join('')}</div>`:'<div class="empty">Aucune pièce jointe.</div>'}
+    ${who==='bat'&&aClasser.length&&!DEMO?`<div style="display:flex;gap:10px 14px;flex-wrap:wrap;align-items:center;margin-top:10px;padding:10px;background:var(--batbg);border-radius:8px">
+      <button class="btn pri sm" onclick="saveDir(this)">📁 Enregistrer dans un dossier…</button>
+      <label class="hint"><input type="checkbox" id="fSub" checked> dans un sous-dossier « ${esc(d.numero)} – … »</label>
+      <label class="hint"><input type="checkbox" id="fRet"> retirer ensuite de l’appli</label>
+      <span class="hint" style="flex-basis:100%">Choisis le dossier sur ton PC (dossier Drive ou Teams synchronisé, réseau…). ${aClasser.length} fichier${aClasser.length>1?'s':''} à enregistrer.</span></div>`:''}
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px">
       <select class="sel" id="upCat">${['Devis','Plans','Photos','Croquis','Autres'].map(c=>`<option>${c}</option>`).join('')}</select>
       <label class="addf">📎 Ajouter des fichiers<input type="file" multiple onchange="uploadMore(this,'${who}')"></label>
     </div></div>`;
+}
+async function pjBlob(fid){ await fbReady; const cle=CUR.auth.cle||await FB.cleDe(CUR.demande.id); return FB.fichier(cle,fid); }
+async function dlFile(fid,el){
+  if(DEMO) return toast('Mode démo : pas de fichier');
+  el.style.opacity=.5;
+  try{ const {blob,nom}=await pjBlob(fid); const u=URL.createObjectURL(blob), a=document.createElement('a'); a.href=u; a.download=nom; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),60000); }
+  catch(e){ toast(e.message,1); }
+  el.style.opacity=1;
+}
+// Le Bâtiment enregistre les pièces jointes dans le dossier de son choix (Chrome ou Edge sur PC)
+let PJ_DIR=null;
+async function saveDir(btn){
+  const d=CUR.demande, fs=(d.fichiers||[]).filter(x=>x.fid&&x.retire!=='oui');
+  if(!fs.length) return toast('Aucun fichier à enregistrer',1);
+  if(!window.showDirectoryPicker) return toast('Ce navigateur ne permet pas de choisir un dossier : utilise Chrome ou Edge sur PC (ou télécharge les fichiers un par un)',1);
+  const sub=$('#fSub').checked, ret=$('#fRet').checked;
+  let dir;
+  try{ dir=await window.showDirectoryPicker({id:'dt-pj',mode:'readwrite',startIn:PJ_DIR||'documents'}); }catch(e){ return; } // choix annulé
+  PJ_DIR=dir;
+  busy(btn,true,'Enregistrement…');
+  try{
+    let cible=dir, nomD=dir.name;
+    if(sub){ const n=(d.numero+' – '+(d.intitule||'')).replace(/[\\/:*?"<>|]/g,'-').slice(0,80).trim(); cible=await dir.getDirectoryHandle(n,{create:true}); nomD+='/'+n; }
+    const pris=new Set();
+    for(let i=0;i<fs.length;i++){
+      btn.innerHTML=`Enregistrement ${i+1}/${fs.length}…`;
+      const {blob}=await pjBlob(fs[i].fid);
+      let nom=fs[i].nom.replace(/[\\/:*?"<>|]/g,'-'), k=2; const pt=nom.lastIndexOf('.');
+      while(pris.has(nom.toLowerCase())) nom=(pt>0?fs[i].nom.slice(0,pt)+' ('+(k++)+')'+fs[i].nom.slice(pt):fs[i].nom+' ('+(k++)+')').replace(/[\\/:*?"<>|]/g,'-');
+      pris.add(nom.toLowerCase());
+      const fh=await cible.getFileHandle(nom,{create:true}); const w=await fh.createWritable(); await w.write(blob); await w.close();
+    }
+    await FB.classer(d.id,fs.map(x=>x.fid),nomD,ret);
+    toast(`✓ ${fs.length} fichier${fs.length>1?'s':''} enregistré${fs.length>1?'s':''} dans ${nomD}`);
+    vBatFiche(d.id,true);
+  }catch(e){ toast(e.message,1); busy(btn,false); }
 }
 let CUR=null; // {demande, suivi, auth}
 async function uploadMore(inp,who){
