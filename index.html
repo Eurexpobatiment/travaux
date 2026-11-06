@@ -195,8 +195,20 @@ const CONFIG = {
   // Colle ici l'URL /exec de l'Application Web Apps Script. Vide = mode démo (données fictives dans ce navigateur, code Bâtiment : demo)
   apiUrl: 'https://script.google.com/macros/s/AKfycbw7DpxVxpeE0VHa1Vi2dZ4Pg0BvIYKr67Ty4Ucx2SboRD0k-rlxSZwigtzyclStUdO1/exec',
   services: ['Bâtiment','Coordination','F&B','Access','Commercial','Communication','Direction','Exploitation','Informatique','RH','Sécurité','Technique'],
-  lieux: ['Hall 1','Hall 2','Hall 3','Hall 4','Hall 5','Hall 6','Centre de congrès','Bureaux administratifs','Parvis','Parkings','Locaux techniques']
+  lieux: ['Hall 1','Hall 2','Hall 3','Hall 4','Hall 5','Hall 6','Centre de congrès','Bureaux administratifs','Parvis','Parkings','Locaux techniques'],
+  // Projet Firebase partagé avec l'appli Équipe (mêmes comptes pour l'espace Bâtiment). Vide = mode démo.
+  firebase: {
+    apiKey: 'AIzaSyARtP0RMkulG6c53-bnazwpGTspl0LgAhk', // clé publique (faite pour être dans la page)
+    authDomain: 'equipe-batiment.firebaseapp.com',
+    projectId: 'equipe-batiment',
+    storageBucket: 'equipe-batiment.firebasestorage.app',
+    messagingSenderId: '408022301135',
+    appId: '1:408022301135:web:69dee0a5fb479154657aba'
+  },
+  // Bouton « Reprendre le Google Sheet » pour les responsables (pendant la transition)
+  reprise: true
 };
+const FB_VER = '2'; // à augmenter à chaque modification de fb.js
 
 /* ======================= STRUCTURE DE LA FICHE ======================= */
 // Reprend les lignes du « Formulaire de demande travaux V2 »
@@ -259,7 +271,7 @@ const PRIOS = ['','Basse','Normale','Haute','Urgente'];
 const PRIO_COL = {Basse:'#9aa3b2',Normale:'#3a6ea5',Haute:'#e09a2b',Urgente:'#e63946'};
 
 /* ======================= OUTILS ======================= */
-const DEMO = !CONFIG.apiUrl;
+const DEMO = !CONFIG.firebase;
 const $ = s=>document.querySelector(s);
 const esc = s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pad = n=>String(n).padStart(2,'0');
@@ -281,16 +293,35 @@ function go(h){ if(location.hash===h) route(); else location.hash=h; }
 function busy(btn,on,txt){ if(!btn) return; if(on){btn.dataset.t=btn.innerHTML;btn.disabled=true;btn.innerHTML=txt||'…'}else{btn.disabled=false;if(btn.dataset.t)btn.innerHTML=btn.dataset.t} }
 
 /* ======================= API ======================= */
+/* Données dans Firebase (fb.js). Le script Google ne sert plus qu'aux e-mails et aux pièces jointes. */
+let FB=null, BAT={etat:DEMO?'deconnecte':'attente'}; // etat : attente | deconnecte | non-verifie | sans-acces | ok | erreur
+const fbReady = DEMO ? Promise.resolve() : (async()=>{
+  try{ FB=await import('./fb.js?v='+FB_VER); FB.init(CONFIG); }
+  catch(e){ FB=null; BAT={etat:'erreur',err:e.message}; return; }
+  FB.onAuth(st=>{
+    const avant=BAT.etat+'|'+(BAT.nom||''); BAT=st;
+    if(avant!==BAT.etat+'|'+(BAT.nom||'')){ LISTE=[]; const h=location.hash.replace(/^#\/?/,''); if(h.startsWith('bat')) route(); else renderHeader(h.split('/')[0]); }
+  });
+})();
 async function api(action,p={}){
   if(DEMO) return demoApi(action,JSON.parse(JSON.stringify(p)));
-  const r=await fetch(CONFIG.apiUrl,{method:'POST',body:JSON.stringify({action,...p})});
-  if(!r.ok) throw new Error('Serveur injoignable ('+r.status+')');
-  const j=await r.json();
-  if(!j.ok) throw new Error(j.error||'Erreur serveur');
-  return j.data;
+  await fbReady;
+  if(!FB) throw new Error('Impossible de démarrer l’appli (pas de connexion ?)'+(BAT.err?' : '+BAT.err:''));
+  switch(action){
+    case 'create': return FB.create(p.item,p.files);
+    case 'get': return p.cle?FB.getPublic(p.id,p.cle):FB.getBat(p.id);
+    case 'list': return FB.list();
+    case 'update': return FB.update(p.id,p.item,p.message,p.prevenir);
+    case 'comment': return FB.comment(p);
+    case 'upload': return FB.upload(p);
+    case 'delete': return FB.remove(p.id);
+    default: throw new Error('Action inconnue : '+action);
+  }
 }
-const batCode = ()=>LS.get('dt_code','');
-const batNom = ()=>LS.get('dt_batnom','');
+// Mode démo : le « code » Bâtiment est demo
+const batCode = ()=>DEMO?LS.get('dt_code',''):'';
+const isBat = ()=>DEMO?!!batCode():BAT.etat==='ok';
+const batNom = ()=>DEMO?LS.get('dt_batnom',''):(BAT.nom||'');
 
 /* ---------- mode démo : tout reste dans ce navigateur ---------- */
 function demoApi(action,p){
@@ -358,11 +389,12 @@ function route(){
   vAccueil();
 }
 function renderHeader(page){
-  const bat=!!batCode();
+  const bat=isBat();
   $('#hright').innerHTML = page==='bat'
     ? `<a class="hbtn" href="#/">← Accueil</a>`
     : (bat?`<a class="hbtn" href="#/bat">🔧 Bâtiment</a>`:'');
   $('#demoBanner').innerHTML = DEMO?'<div class="demo">Mode démo : rien n’est envoyé, les données restent dans ce navigateur. Code Bâtiment : <b>demo</b>.</div>':'';
+  if(!DEMO&&BAT.etat==='ok') $('#hright').innerHTML+=` <button class="hbtn" onclick="vCompte()" title="Mon compte">👤 ${esc(BAT.nom)}</button>`;
 }
 
 /* ======================= ACCUEIL ======================= */
@@ -374,7 +406,7 @@ function vAccueil(){
     <div class="hint">Remplissez la fiche en ligne : elle arrive directement au service Bâtiment, qui la complète et vous tient informé de son avancement.</div>
     <div class="choices">
       <a class="choice main" href="#/nouvelle"><b>＋ Nouvelle demande</b><span class="hint">Environ 5 minutes. Photos, plans et devis peuvent être joints.</span></a>
-      <a class="choice" href="#/bat"><b>🔧 Espace Bâtiment</b><span class="hint">Traiter et suivre les demandes (code d’accès).</span></a>
+      <a class="choice" href="#/bat"><b>🔧 Espace Bâtiment</b><span class="hint">Traiter et suivre les demandes (${DEMO?'code d’accès':'compte de l’appli Équipe'}).</span></a>
     </div>
   </div>
   ${mes.length?`<h3 style="margin:18px 2px 8px;font-size:15px">Mes demandes sur cet appareil</h3>
@@ -522,6 +554,7 @@ async function submitForm(btn){
     const r=await api('create',{item:o,files});
     const mes=LS.get('dt_mes',[]); mes.push({id:r.id,cle:r.cle,numero:r.numero,intitule:o.intitule,date:today()}); LS.set('dt_mes',mes);
     LS.del('dt_brouillon'); FILES={};
+    if(r.warn) toast(r.warn,1);
     go(`#/merci/${r.id}/${r.cle}/${encodeURIComponent(r.numero)}`);
   }catch(e){ toast(e.message,1); busy(btn,false); }
 }
@@ -545,7 +578,7 @@ function valText(d,f){
   if(f.moreK&&d[f.moreK]) v+=(v?' — ':'')+d[f.moreK];
   if(f.type==='file'){
     const fs=(d.fichiers||[]).filter(x=>x.cat===f.cat);
-    return {html:fs.map(x=>`<div>📎 <a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.nom)}</a></div>`).join('')+(v?`<div>${esc(v)}</div>`:''), txt:fs.map(x=>x.nom).join('\n')+(v?(fs.length?'\n':'')+v:'')};
+    return {html:fs.map(x=>`<div>📎 ${pjLien(x)}</div>`).join('')+(v?`<div>${esc(v)}</div>`:''), txt:fs.map(x=>x.nom).join('\n')+(v?(fs.length?'\n':'')+v:'')};
   }
   return {html:esc(v),txt:v};
 }
@@ -573,14 +606,62 @@ function msgsHtml(list,bat){
     return `<div class="msg ${cls}"><div class="h">${head} · ${fDT(s.date)}</div><div class="t">${esc(s.texte)}</div></div>`;
   }).join('')}</div>`;
 }
+// Lien d'une pièce jointe : ancienne (Drive), gardée dans l'appli, ou déjà enregistrée dans un dossier
+function pjLien(x){
+  if(x.url) return `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.nom)}</a>`;
+  if(x.fid&&x.retire!=='oui') return `<a href="#" onclick="dlFile('${esc(x.fid)}',this);return false">${esc(x.nom)}</a>`;
+  return esc(x.nom);
+}
 function filesPanel(d,who){
   const fs=d.fichiers||[];
+  const aClasser=fs.filter(x=>x.fid&&x.retire!=='oui');
   return `<div class="panel"><h3>📎 Pièces jointes (${fs.length})</h3>
-    ${fs.length?`<div class="files">${fs.map(x=>`<div class="file">📄<span class="nm"><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.nom)}</a></span><span class="hint">${esc(x.cat)} · ${esc(x.par||'')} · ${fD(x.le)}</span></div>`).join('')}</div>`:'<div class="empty">Aucune pièce jointe.</div>'}
+    ${fs.length?`<div class="files">${fs.map(x=>`<div class="file">📄<span class="nm">${pjLien(x)}</span><span class="hint">${esc(x.cat)} · ${esc(x.par||'')} · ${fD(x.le)}${who==='bat'&&x.classe?` · <b style="color:var(--ok)">📁 ${esc(x.classe)}</b>${x.retire==='oui'?' (plus dans l’appli)':''}`:''}</span></div>`).join('')}</div>`:'<div class="empty">Aucune pièce jointe.</div>'}
+    ${who==='bat'&&aClasser.length&&!DEMO?`<div style="display:flex;gap:10px 14px;flex-wrap:wrap;align-items:center;margin-top:10px;padding:10px;background:var(--batbg);border-radius:8px">
+      <button class="btn pri sm" onclick="saveDir(this)">📁 Enregistrer dans un dossier…</button>
+      <label class="hint"><input type="checkbox" id="fSub" checked> dans un sous-dossier « ${esc(d.numero)} – … »</label>
+      <label class="hint"><input type="checkbox" id="fRet"> retirer ensuite de l’appli</label>
+      <span class="hint" style="flex-basis:100%">Choisis le dossier sur ton PC (dossier Drive ou Teams synchronisé, réseau…). ${aClasser.length} fichier${aClasser.length>1?'s':''} à enregistrer.</span></div>`:''}
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px">
       <select class="sel" id="upCat">${['Devis','Plans','Photos','Croquis','Autres'].map(c=>`<option>${c}</option>`).join('')}</select>
       <label class="addf">📎 Ajouter des fichiers<input type="file" multiple onchange="uploadMore(this,'${who}')"></label>
     </div></div>`;
+}
+async function pjBlob(fid){ await fbReady; const cle=CUR.auth.cle||await FB.cleDe(CUR.demande.id); return FB.fichier(cle,fid); }
+async function dlFile(fid,el){
+  if(DEMO) return toast('Mode démo : pas de fichier');
+  el.style.opacity=.5;
+  try{ const {blob,nom}=await pjBlob(fid); const u=URL.createObjectURL(blob), a=document.createElement('a'); a.href=u; a.download=nom; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),60000); }
+  catch(e){ toast(e.message,1); }
+  el.style.opacity=1;
+}
+// Le Bâtiment enregistre les pièces jointes dans le dossier de son choix (Chrome ou Edge sur PC)
+let PJ_DIR=null;
+async function saveDir(btn){
+  const d=CUR.demande, fs=(d.fichiers||[]).filter(x=>x.fid&&x.retire!=='oui');
+  if(!fs.length) return toast('Aucun fichier à enregistrer',1);
+  if(!window.showDirectoryPicker) return toast('Ce navigateur ne permet pas de choisir un dossier : utilise Chrome ou Edge sur PC (ou télécharge les fichiers un par un)',1);
+  const sub=$('#fSub').checked, ret=$('#fRet').checked;
+  let dir;
+  try{ dir=await window.showDirectoryPicker({id:'dt-pj',mode:'readwrite',startIn:PJ_DIR||'documents'}); }catch(e){ return; } // choix annulé
+  PJ_DIR=dir;
+  busy(btn,true,'Enregistrement…');
+  try{
+    let cible=dir, nomD=dir.name;
+    if(sub){ const n=(d.numero+' – '+(d.intitule||'')).replace(/[\\/:*?"<>|]/g,'-').slice(0,80).trim(); cible=await dir.getDirectoryHandle(n,{create:true}); nomD+='/'+n; }
+    const pris=new Set();
+    for(let i=0;i<fs.length;i++){
+      btn.innerHTML=`Enregistrement ${i+1}/${fs.length}…`;
+      const {blob}=await pjBlob(fs[i].fid);
+      let nom=fs[i].nom.replace(/[\\/:*?"<>|]/g,'-'), k=2; const pt=nom.lastIndexOf('.');
+      while(pris.has(nom.toLowerCase())) nom=(pt>0?fs[i].nom.slice(0,pt)+' ('+(k++)+')'+fs[i].nom.slice(pt):fs[i].nom+' ('+(k++)+')').replace(/[\\/:*?"<>|]/g,'-');
+      pris.add(nom.toLowerCase());
+      const fh=await cible.getFileHandle(nom,{create:true}); const w=await fh.createWritable(); await w.write(blob); await w.close();
+    }
+    await FB.classer(d.id,fs.map(x=>x.fid),nomD,ret);
+    toast(`✓ ${fs.length} fichier${fs.length>1?'s':''} enregistré${fs.length>1?'s':''} dans ${nomD}`);
+    vBatFiche(d.id,true);
+  }catch(e){ toast(e.message,1); busy(btn,false); }
 }
 let CUR=null; // {demande, suivi, auth}
 async function uploadMore(inp,who){
@@ -621,36 +702,86 @@ async function sendMsg(btn,bat){
   try{
     const p={...CUR.auth,id:CUR.demande.id,texte:t};
     if(bat){ p.user=batNom(); p.public=!$('#msgPriv').checked; p.prevenir=$('#msgMail')&&$('#msgMail').checked; }
-    await api('comment',p);
+    const r=await api('comment',p); if(r&&r.warn) toast(r.warn,1);
     bat?vBatFiche(CUR.demande.id,true):vSuivi(CUR.demande.id,CUR.auth.cle);
   }catch(e){ toast(e.message,1); busy(btn,false); }
 }
 
 /* ======================= ESPACE BÂTIMENT ======================= */
 function vLogin(){
+  if(DEMO) return vLoginDemo();
+  if(BAT.etat==='attente'){ $('#view').innerHTML='<div class="loading">Connexion…</div>'; return; }
+  if(BAT.etat==='erreur'){ $('#view').innerHTML=`<div class="loading">Impossible de démarrer l’appli (pas de connexion ?).<br>${esc(BAT.err||'')}<br><br><button class="btn" onclick="location.reload()">Réessayer</button></div>`; return; }
+  if(BAT.etat==='non-verifie'){ $('#view').innerHTML=`<div class="hero" style="max-width:460px;margin:30px auto"><h2>Vérifie ton adresse</h2>
+    <p>Un mail de vérification a été envoyé à <b>${esc(BAT.email)}</b>. Ouvre-le et touche le lien, puis reviens ici.</p>
+    <div class="mact"><button class="btn" onclick="FB.logout()">Changer d’adresse</button><button class="btn" onclick="FB.resendVerif().then(()=>toast('Mail renvoyé'),e=>toast(e.message,1))">Renvoyer le mail</button><button class="btn pri" onclick="location.reload()">C’est fait</button></div></div>`; return; }
+  if(BAT.etat==='sans-acces'){ $('#view').innerHTML=`<div class="hero" style="max-width:460px;margin:30px auto"><h2>Accès pas ouvert</h2>
+    <p>Le compte <b>${esc(BAT.email)}</b> n’est pas dans l’équipe Bâtiment.</p>
+    <p class="hint">Un responsable peut saisir cette adresse à côté de ton nom dans l’onglet 👥 Équipe de l’appli Équipe.${BAT.err?'<br>'+esc(BAT.err):''}</p>
+    <div class="mact"><button class="btn" onclick="FB.logout()">Se déconnecter</button></div></div>`; return; }
+  const em=LS.get('dt_email','')||LS.get('equipe.email','');
+  $('#view').innerHTML=`<div class="hero" style="max-width:420px;margin:30px auto">
+    <h2>🔧 Espace Bâtiment</h2><p class="hint">Même adresse e-mail et même mot de passe que l’appli Équipe Bâtiment.</p>
+    <div class="fld"><label>Adresse e-mail</label><input class="in" id="lgEm" type="email" inputmode="email" autocomplete="username" value="${esc(em)}"></div>
+    <div class="fld"><label>Mot de passe</label><input class="in" id="lgPw" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin($('#lgBtn'))"></div>
+    <div class="mact"><button class="btn" onclick="oubli()">Mot de passe oublié</button><button class="btn pri" id="lgBtn" onclick="doLogin(this)">Se connecter</button></div></div>`;
+  em?$('#lgPw').focus():$('#lgEm').focus();
+}
+async function doLogin(btn){
+  const em=$('#lgEm').value.trim(), pw=$('#lgPw').value;
+  if(!em||!pw) return toast('Adresse et mot de passe obligatoires',1);
+  LS.set('dt_email',em);
+  busy(btn,true,'Connexion…');
+  try{ await fbReady; await FB.login(em,pw); }   // la suite arrive par FB.onAuth
+  catch(e){ toast(e.message,1); busy(btn,false); }
+}
+async function oubli(){
+  const em=$('#lgEm').value.trim(); if(!em) return toast('Saisis d’abord ton adresse e-mail',1);
+  try{ await fbReady; await FB.resetPw(em); toast('Mail envoyé à '+em+' pour choisir un nouveau mot de passe'); }catch(e){ toast(e.message,1); }
+}
+function vCompte(){
+  modal(`<h3>Mon compte</h3><p><b>${esc(BAT.nom)}</b>${BAT.role?' · '+esc(BAT.role):''}</p><p class="hint">Connecté avec ${esc(BAT.email)} (compte de l’appli Équipe).</p>`,
+    async ov=>{ ov.remove(); await FB.logout(); go('#/'); });
+  const ok=document.querySelector('.ov [data-ok]'); ok.textContent='Se déconnecter'; ok.classList.remove('pri'); ok.classList.add('danger');
+}
+// Mode démo : nom + code « demo »
+function vLoginDemo(){
   $('#view').innerHTML=`<div class="hero" style="max-width:420px;margin:30px auto">
     <h2>🔧 Espace Bâtiment</h2><p class="hint">Réservé au service Bâtiment.</p>
     <div class="fld"><label>Ton nom</label><input class="in" id="lgNom" value="${esc(batNom())}" autocomplete="name"></div>
-    <div class="fld"><label>Code d’accès</label><input class="in" id="lgCode" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin($('#lgBtn'))"></div>
-    <div class="mact"><button class="btn pri" id="lgBtn" onclick="doLogin(this)">Entrer</button></div></div>`;
-  $('#lgNom').value?$('#lgCode').focus():$('#lgNom').focus();
+    <div class="fld"><label>Code d’accès</label><input class="in" id="lgCode" type="password" onkeydown="if(event.key==='Enter')doLoginDemo($('#lgBtn'))"></div>
+    <div class="mact"><button class="btn pri" id="lgBtn" onclick="doLoginDemo(this)">Entrer</button></div></div>`;
 }
-async function doLogin(btn){
+async function doLoginDemo(btn){
   const nom=$('#lgNom').value.trim(), code=$('#lgCode').value.trim();
   if(!nom) return toast('Indique ton nom',1);
   busy(btn,true,'Vérification…');
-  try{ await api('login',{code}); LS.set('dt_code',code); LS.set('dt_batnom',nom); route(); }
+  try{ await demoApi('login',{code}); LS.set('dt_code',code); LS.set('dt_batnom',nom); route(); }
   catch(e){ toast(e.message,1); busy(btn,false); }
 }
-function logout(){ LS.del('dt_code'); go('#/'); }
+async function logout(){ if(DEMO){ LS.del('dt_code'); return go('#/'); } await FB.logout(); go('#/'); }
+
+/* Reprise des demandes du Google Sheet (responsables, pendant la transition) */
+function vReprise(){
+  modal(`<h3>Reprendre les demandes du Google Sheet</h3>
+    <p class="hint">Copie dans Firebase toutes les demandes de l’ancienne version (fiches, échanges, notes internes, liens vers les pièces jointes). Le Google Sheet n’est pas modifié. Tu peux relancer la reprise au moment de la bascule : les demandes du Sheet sont alors mises à jour.</p>
+    <div class="fld"><label>Code Bâtiment de l’ancienne version</label><input class="in" id="rpCode" type="password" autocomplete="off"></div>
+    <p class="hint" id="rpProg"></p>`,
+    async ov=>{
+      const code=$('#rpCode').value.trim(); if(!code) throw new Error('Code obligatoire');
+      const r=await FB.reprise(code,m=>{const e=$('#rpProg');if(e)e.textContent=m});
+      ov.remove(); toast(`✓ ${r.demandes} demandes et ${r.suivi} échanges repris`); LISTE=[]; vBatListe();
+    });
+  const ok=document.querySelector('.ov [data-ok]'); ok.textContent='Reprendre';
+}
 
 let LISTE=[], FILTRE=LS.get('dt_filtre','actives'), RECH='';
 async function vBatListe(){
-  if(!batCode()) return vLogin();
+  if(!isBat()) return vLogin();
   $('#view').className='wide';
   if(!LISTE.length) $('#view').innerHTML='<div class="loading">Chargement des demandes…</div>';
   try{ LISTE=await api('list',{code:batCode()}); drawListe(); }
-  catch(e){ if(/code/i.test(e.message)){LS.del('dt_code');toast(e.message,1);return vLogin()} $('#view').innerHTML=`<div class="loading">${esc(e.message)}<br><br><button class="btn" onclick="vBatListe()">Réessayer</button></div>`; }
+  catch(e){ if(DEMO&&/code/i.test(e.message)){LS.del('dt_code');toast(e.message,1);return vLogin()} $('#view').innerHTML=`<div class="loading">${esc(e.message)}<br><br><button class="btn" onclick="vBatListe()">Réessayer</button></div>`; }
 }
 function drawListe(){
   const actives=d=>!['Terminée','Refusée'].includes(d.statut);
@@ -665,6 +796,7 @@ function drawListe(){
       <input class="search" placeholder="🔍 Rechercher (n°, projet, demandeur, lieu…)" value="${esc(RECH)}" oninput="RECH=this.value;drawListe();this.focus();this.setSelectionRange(this.value.length,this.value.length)">
       <button class="btn" onclick="vBatListe()" title="Actualiser">↻</button>
       <a class="btn" href="#/nouvelle">＋ Saisir une demande</a>
+      ${!DEMO&&CONFIG.reprise&&BAT.role==='Responsable'?'<button class="btn" onclick="vReprise()" title="Copier les demandes de l’ancienne version">⇪ Reprendre le Google Sheet</button>':''}
       <button class="btn" onclick="logout()" title="Se déconnecter">⎋ ${esc(batNom())}</button></div>
     <div class="chips">${filt.map(([k,l])=>{const n=cnt(k);return (n||k==='actives'||k==='toutes'||k===FILTRE)?`<button class="${k===FILTRE?'on':''}" onclick="FILTRE='${k.replace(/'/g,"\\'")}';LS.set('dt_filtre',FILTRE);drawListe()">${esc(l)}<b>${n}</b></button>`:''}).join('')}</div>
     <div class="dl">${L.length?L.map(d=>{
@@ -683,13 +815,13 @@ function dirty(){ DIRTY=true; const b=$('#saveBtn'); if(b) b.classList.add('pri'
 window.addEventListener('beforeunload',e=>{ if(DIRTY){e.preventDefault();e.returnValue=''} });
 
 async function vBatFiche(id,keepScroll){
-  if(!batCode()) return vLogin();
+  if(!isBat()) return vLogin();
   const y=window.scrollY;
   $('#view').className='wide';
   if(!keepScroll) $('#view').innerHTML='<div class="loading">Chargement…</div>';
   try{
     const r=await api('get',{id,code:batCode()});
-    CUR={...r,auth:{code:batCode()}}; DIRTY=false;
+    CUR={...r,auth:DEMO?{code:batCode()}:{}}; DIRTY=false;
     const d=r.demande;
     $('#view').innerHTML=`
       <div class="bar"><a class="btn sm" href="#/bat">← Liste</a><h2>${esc(d.numero)} · ${esc(d.intitule)}</h2>${stBadge(d.statut)}</div>
@@ -722,7 +854,7 @@ async function vBatFiche(id,keepScroll){
     document.querySelectorAll('.fiche textarea').forEach(grow);
     if(keepScroll) window.scrollTo(0,y);
   }catch(e){
-    if(/code/i.test(e.message)){LS.del('dt_code');toast(e.message,1);return vLogin()}
+    if(DEMO&&/code/i.test(e.message)){LS.del('dt_code');toast(e.message,1);return vLogin()}
     $('#view').innerHTML=`<div class="loading">${esc(e.message)}<br><br><a class="btn" href="#/bat">← Liste</a></div>`;
   }
 }
@@ -744,8 +876,8 @@ async function saveBat(btn){
 async function doSave(btn,item,message,prevenir){
   busy(btn,true,'Enregistrement…');
   try{
-    await api('update',{code:batCode(),user:batNom(),id:CUR.demande.id,item,message,prevenir});
-    DIRTY=false; toast('Enregistré'); LISTE=[]; vBatFiche(CUR.demande.id,true);
+    const r=await api('update',{code:batCode(),user:batNom(),id:CUR.demande.id,item,message,prevenir});
+    DIRTY=false; r&&r.warn?toast('Enregistré · '+r.warn,1):toast('Enregistré'); LISTE=[]; vBatFiche(CUR.demande.id,true);
   }catch(e){ toast(e.message,1); busy(btn,false); }
 }
 async function delDemande(btn){
