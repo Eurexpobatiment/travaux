@@ -455,7 +455,7 @@ function fbUrl_(p) {
   if (/^https:\/\/eurexpobatiment\.github\.io\/travaux\//.test(u)) APP_URL_FB = u.split('#')[0];
 }
 
-// Lecture d'un document Firestore (avec le jeton de la personne connectée, ou sans connexion pour une demande publique)
+// Lecture d'un document Firestore avec le jeton de la personne connectée (Firestore vérifie ses droits)
 function fsGet_(path, tok) {
   const base = 'https://firestore.googleapis.com/v1/projects/' + FIREBASE_PROJECT + '/databases/(default)/documents/';
   const url = base + path.split('/').map(encodeURIComponent).join('/');
@@ -509,7 +509,9 @@ function fbMembre_(tok) {
 // Nouvelle demande : accusé de réception au demandeur + alerte au Bâtiment
 function fbNouvelle_(p) {
   const cle = cleOk_(p.cle);
-  const d = fsGet_('Demandes/' + cle);
+  const tok = String(p.idToken || '');
+  if (!tok) throw new Error('Connexion nécessaire');
+  const d = fsGet_('Demandes/' + cle, tok); // lisible seulement par le demandeur connecté (ou le Bâtiment)
   d.cle = cle;
   if (!uneFois_('fbnew_' + cle, d.creeLe)) return { envoye: false };
   mailNouvelle_(d);
@@ -520,8 +522,10 @@ function fbNouvelle_(p) {
 function fbMsgDem_(p) {
   const cle = cleOk_(p.cle);
   const sid = String(p.sid || '');
-  const d = fsGet_('Demandes/' + cle);
-  const s = fsGet_('Demandes/' + cle + '/Suivi/' + sid);
+  const tok = String(p.idToken || '');
+  if (!tok) throw new Error('Connexion nécessaire');
+  const d = fsGet_('Demandes/' + cle, tok);
+  const s = fsGet_('Demandes/' + cle + '/Suivi/' + sid, tok);
   d.cle = cle;
   if (s.type !== 'demandeur' || !uneFois_('fbmsg_' + sid, s.date)) return { envoye: false };
   mailMessageBat_(d, s.texte);

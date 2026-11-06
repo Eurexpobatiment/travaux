@@ -43,6 +43,8 @@ const MSG = {
   'auth/invalid-credential': 'E-mail ou mot de passe incorrect',
   'auth/wrong-password': 'E-mail ou mot de passe incorrect',
   'auth/user-not-found': 'Aucun compte avec cette adresse',
+  'auth/email-already-in-use': 'Un compte existe déjà avec cette adresse : connectez-vous (ou « Mot de passe oublié »)',
+  'auth/weak-password': 'Mot de passe trop court (6 caractères minimum)',
   'auth/too-many-requests': 'Trop d\'essais : patiente quelques minutes',
   'auth/network-request-failed': 'Pas de connexion internet',
   'permission-denied': 'Accès refusé',
@@ -88,6 +90,16 @@ function pub(d, noteInterne) {
 }
 
 /* ---------- Connexion du service Bâtiment (comptes de l'appli Équipe) ---------- */
+// Demandeurs : adresses de l'entreprise seulement (liste dans CONFIG.domaines, à garder identique aux règles Firebase)
+const domaineOk = e => (CFG.domaines || []).some(d => String(e || '').toLowerCase().endsWith('@' + d.toLowerCase()));
+export async function signup(email, pw) {
+  email = String(email || '').trim().toLowerCase();
+  if (!domaineOk(email)) throw new Error('Adresse non autorisée : utilisez votre adresse ' + (CFG.domaines || []).map(d => '@' + d).join(' ou '));
+  const c = await wrap(A.createUserWithEmailAndPassword(auth, email, pw));
+  await wrap(A.sendEmailVerification(c.user, { url: location.href.split('#')[0] }));
+}
+const jeton = () => auth.currentUser ? auth.currentUser.getIdToken() : Promise.resolve('');
+function needUser() { if (!auth.currentUser || !meEmail) throw new Error('Connectez-vous d\'abord'); }
 export const login = (email, pw) => wrap(A.signInWithEmailAndPassword(auth, email.trim(), pw));
 export const resetPw = email => wrap(A.sendPasswordResetEmail(auth, email.trim()));
 export const resendVerif = () => wrap(A.sendEmailVerification(auth.currentUser));
@@ -109,10 +121,12 @@ export function onAuth(cb) {
         const s = await F.getDoc(F.doc(db, 'Acces', meEmail));
         const a = s.exists() ? s.data() : null;
         if (a && a.actif !== 'non') { me = a.nom; meRole = a.role || ''; return cb({ etat: 'ok', email: meEmail, nom: me, role: meRole }); }
-        me = ''; return cb({ etat: 'sans-acces', email: meEmail });
+        me = ''; meRole = '';
+        return cb(domaineOk(meEmail) ? { etat: 'demandeur', email: meEmail } : { etat: 'sans-acces', email: meEmail });
       } catch (e) {
         if (e.code === 'permission-denied' && !i) { await u.getIdToken(true).catch(() => {}); continue; }
-        me = ''; return cb({ etat: 'sans-acces', email: meEmail, err: errMsg(e) });
+        me = ''; meRole = '';
+        return cb(domaineOk(meEmail) ? { etat: 'demandeur', email: meEmail } : { etat: 'sans-acces', email: meEmail, err: errMsg(e) });
       }
     }
   });
@@ -126,12 +140,13 @@ export async function create(item, files) {
   if (!clean(item.intitule)) throw new Error('Intitulé du projet obligatoire');
   if (!clean(item.email) && !clean(item.telephone)) throw new Error('Indique un e-mail ou un téléphone');
   if (!navigator.onLine) throw new Error('Connexion internet nécessaire pour envoyer la demande');
+  needUser();
   const o = {};
   CHAMPS.forEach(k => { if (k in item) o[k] = clean(item[k], LONGS.includes(k) ? 5000 : 500); });
   const cle = hex(16), id = hex(5), sid = hex(5), t = now_();
   const annee = String(new Date().getUTCFullYear());
   o.dateDemande = o.dateDemande || t.slice(0, 10);
-  Object.assign(o, { id, cle, annee, creeLe: t, majLe: t, majPar: o.demandeur, statut: 'Nouvelle', fichiers: '[]' });
+  Object.assign(o, { id, cle, annee, compte: meEmail, creeLe: t, majLe: t, majPar: o.demandeur, statut: 'Nouvelle', fichiers: '[]' });
   let numero = '';
   await wrap(F.runTransaction(db, async tx => {
     const cref = F.doc(db, 'Compteurs', 'dt-' + annee);
@@ -147,12 +162,21 @@ export async function create(item, files) {
     try { await upload({ cle, files }, o.demandeur); }
     catch (e) { warn = 'Demande enregistrée, mais les pièces jointes n\'ont pas pu être envoyées (' + e.message + '). Ajoutez-les depuis la page de suivi.'; }
   }
-  await quiet(script('fbNouvelle', { cle }));
+  await quiet(jeton().then(idToken => script('fbNouvelle', { cle, idToken })));
   return { id, numero, cle, warn };
 }
 
+// Demandes du compte connecté (accueil)
+export async function mesDemandes() {
+  needUser();
+  const s = await wrap(F.getDocs(F.query(F.collection(db, 'Demandes'), F.where('compte', '==', meEmail))));
+  return s.docs.map(x => { const d = x.data(); return { id: d.id, cle: x.id, numero: d.numero, intitule: d.intitule, statut: d.statut, date: d.creeLe }; })
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+}
+
 export async function getPublic(id, cle) {
-  const s = await wrap(F.getDoc(dRef(cle)));
+  needUser();
+  const s = await F.getDoc(dRef(cle)).catch(e => { if (e.code === 'permission-denied') throw new Error('Cette demande n\'est pas liée à votre compte (' + meEmail + ')'); throw new Error(errMsg(e)); });
   if (!s.exists() || s.data().id !== String(id)) throw new Error('Lien de suivi invalide');
   const q = await wrap(F.getDocs(F.query(F.collection(db, 'Demandes', cle, 'Suivi'), F.where('public', '==', 'oui'))));
   return { demande: pub(s.data()), suivi: q.docs.map(d => d.data()), bat: false };
@@ -235,7 +259,7 @@ export async function comment(p) {
   if (bat) journal('message', d.numero, texte.slice(0, 80));
   let warn = '';
   try {
-    if (!bat) await script('fbMsgDem', { cle, sid });
+    if (!bat) await script('fbMsgDem', { cle, sid, idToken: await jeton() });
     else if (o.public === 'oui' && p.prevenir && d.email) await mailBat(cle, sid);
   } catch (e) { warn = 'Message enregistré, e-mail non envoyé : ' + e.message; }
   return Object.assign(o, { warn });
@@ -360,6 +384,7 @@ export async function reprise(code, progress = () => {}) {
     Object.keys(d).forEach(k => { if (k && !['noteInterne', 'fichiers', 'nbFichiers', '_row'].includes(k)) o[k] = d[k] === null || d[k] === undefined ? '' : String(d[k]); });
     o.fichiers = JSON.stringify(Array.isArray(d.fichiers) ? d.fichiers : parse(d.fichiers));
     o.seq = m ? Number(m[2]) : 0; o.annee = m ? m[1] : '';
+    o.compte = domaineOk(d.email) ? String(d.email).trim().toLowerCase() : '';
     if (m) max[m[1]] = Math.max(max[m[1]] || 0, o.seq);
     b.set(dRef(d.cle), o); n++;
     b.set(F.doc(db, 'DemandesInt', d.cle), { noteInterne: String(d.noteInterne || ''), majLe: o.majLe || '', majPar: o.majPar || '' }); n++;

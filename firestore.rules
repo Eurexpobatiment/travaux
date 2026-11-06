@@ -76,8 +76,10 @@ service cloud.firestore {
       allow read, write: if member();
     }
       // ================= Demandes de travaux (appli « travaux ») =================
-    // Le demandeur n'a pas de compte : sa demande est rangée sous une clé secrète (l'identifiant du document),
-    // qu'on ne peut que lire directement (pas de liste). Le service Bâtiment se connecte avec son compte Équipe.
+    // Le demandeur se connecte avec son adresse de l'entreprise (compte vérifié) : il ne voit que ses demandes (champ « compte »).
+    // Le service Bâtiment se connecte avec son compte Équipe.
+    function dtDomaine() { return signedIn() && myEmail().matches('.*@(gl-events[.]com)$'); }
+    function dtMien(cle) { return signedIn() && get(/databases/$(db)/documents/Demandes/$(cle)).data.get('compte', '') == myEmail(); }
     function dtTxt(d, k, mini, maxi) { return d[k] is string && d[k].size() >= mini && d[k].size() <= maxi; }
     function dtSeqOk(d) {
       let p = /databases/$(db)/documents/Compteurs/$('dt-' + d.annee);
@@ -86,9 +88,9 @@ service cloud.firestore {
     }
     function dtNouvelle(cle) {
       let d = request.resource.data;
-      return cle.matches('[0-9a-f]{32}') && d.cle == cle
+      return dtDomaine() && cle.matches('[0-9a-f]{32}') && d.cle == cle && d.compte == myEmail()
         && d.keys().hasOnly([
-        'id', 'numero', 'seq', 'annee', 'cle', 'creeLe', 'majLe', 'majPar', 'statut', 'fichiers', 'demandeur', 'service',
+        'id', 'numero', 'seq', 'annee', 'cle', 'compte', 'creeLe', 'majLe', 'majPar', 'statut', 'fichiers', 'demandeur', 'service',
         'email', 'telephone', 'dateDemande', 'lieu', 'intitule', 'description', 'motifs', 'types', 'typeAutre', 'objectif',
         'resultat', 'contraintes', 'horairesPrecis', 'delaisPrecis', 'contrainteAutre', 'processus', 'besoinAnnexe', 'coloris',
         'materiaux', 'references', 'dateDebut', 'dateFin', 'dateImperative', 'impact', 'impactPrecis', 'budget', 'servicePayeur',
@@ -101,21 +103,21 @@ service cloud.firestore {
     }
 
     match /Demandes/{cle} {
-      allow get: if true;                 // avec la clé secrète du lien de suivi
-      allow list: if member();
+      allow read: if member() || (signedIn() && resource.data.get('compte', '') == myEmail());
       allow create: if (admin() && request.resource.data.cle == cle) || dtNouvelle(cle);
       allow update: if admin()
                     || (member() && request.resource.data.keys().size() <= 140
                         && request.resource.data.cle == resource.data.cle && request.resource.data.seq == resource.data.seq
                         && request.resource.data.numero == resource.data.numero && request.resource.data.majPar == myNom())
                     // le demandeur ajoute des pièces jointes
-                    || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fichiers', 'majLe'])
+                    || (signedIn() && resource.data.get('compte', '') == myEmail()
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fichiers', 'majLe'])
                         && request.resource.data.fichiers is string && request.resource.data.fichiers.size() <= 100000);
       allow delete: if member();
 
       // Échanges : le demandeur ne voit que les messages publics
       match /Suivi/{sid} {
-        allow get, list: if member() || resource.data.public == 'oui';
+        allow read: if member() || (resource.data.public == 'oui' && dtMien(cle));
         allow create: if request.resource.data.keys().hasOnly(['id', 'demandeId', 'date', 'auteur', 'type', 'texte', 'public'])
                       && request.resource.data.id == sid && dtTxt(request.resource.data, 'texte', 1, 3000)
                       && dtTxt(request.resource.data, 'auteur', 1, 500)
@@ -123,25 +125,27 @@ service cloud.firestore {
                       && (admin()
                           || (member() && request.resource.data.auteur == myNom() && request.resource.data.public in ['oui', 'non']
                               && request.resource.data.type in ['statut', 'batiment', 'fichier'])
-                          || (request.resource.data.public == 'oui' && (request.resource.data.type in ['demandeur', 'fichier']
+                          || (request.resource.data.public == 'oui'
+                              && getAfter(/databases/$(db)/documents/Demandes/$(cle)).data.get('compte', '') == myEmail()
+                              && (request.resource.data.type in ['demandeur', 'fichier']
                               || (request.resource.data.type == 'statut' && request.resource.data.texte == 'Demande déposée'))));
         allow update, delete: if member();
       }
 
       // Pièces jointes gardées dans l'appli (en morceaux), jusqu'à ce que le Bâtiment les enregistre dans un dossier
       match /Fichiers/{fid} {
-        allow read: if true;              // avec la clé secrète
+        allow read: if member() || dtMien(cle);
         allow create: if request.resource.data.keys().hasOnly(['id', 'nom', 'type', 'parts', 'taille', 'le'])
                       && request.resource.data.id == fid && request.resource.data.parts is int
                       && request.resource.data.parts >= 1 && request.resource.data.parts <= 60
                       && dtTxt(request.resource.data, 'nom', 1, 200)
-                      && exists(/databases/$(db)/documents/Demandes/$(cle));
+                      && (member() || dtMien(cle));
         allow delete: if member();
         match /Parts/{i} {
-          allow read: if true;
+          allow read: if member() || dtMien(cle);
           allow create: if request.resource.data.keys().hasOnly(['i', 'data']) && request.resource.data.i is int
                         && string(request.resource.data.i) == i && request.resource.data.data is string
-                        && request.resource.data.data.size() <= 700000
+                        && request.resource.data.data.size() <= 700000 && (member() || dtMien(cle))
                         && request.resource.data.i < get(/databases/$(db)/documents/Demandes/$(cle)/Fichiers/$(fid)).data.parts;
           allow delete: if member();
         }
@@ -155,10 +159,11 @@ service cloud.firestore {
 
     // Numérotation DT-AAAA-NNN : le compteur n'avance que d'un cran à la fois
     match /Compteurs/{c} {
-      allow get: if true;
-      allow create: if c.matches('dt-[0-9]{4}') && request.resource.data.keys().hasOnly(['n'])
+      allow get: if dtDomaine() || member();
+      allow create: if (dtDomaine() || member()) && c.matches('dt-[0-9]{4}') && request.resource.data.keys().hasOnly(['n'])
                     && (request.resource.data.n == 1 || admin());
-      allow update: if request.resource.data.keys().hasOnly(['n']) && (request.resource.data.n == resource.data.n + 1 || admin());
+      allow update: if (dtDomaine() || member()) && request.resource.data.keys().hasOnly(['n'])
+                    && (request.resource.data.n == resource.data.n + 1 || admin());
     }
   }
 }
