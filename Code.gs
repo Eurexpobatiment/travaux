@@ -88,6 +88,7 @@ function handle_(p) {
       case 'fbNouvelle': fbUrl_(p); return out_({ ok: true, data: fbNouvelle_(p) });
       case 'fbMsgDem':   fbUrl_(p); return out_({ ok: true, data: fbMsgDem_(p) });
       case 'fbMail':     fbUrl_(p); return out_({ ok: true, data: fbMail_(p) });
+      case 'fbExport':   return out_({ ok: true, data: fbExport_(p) });
       default: throw new Error('Action inconnue : ' + p.action);
     }
   } catch (err) {
@@ -503,7 +504,7 @@ function fbMembre_(tok) {
   const payload = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(part + '==='.slice((part.length + 3) % 4))).getDataAsString());
   const acc = fsGet_('Acces/' + String(payload.email || '').toLowerCase(), tok);
   if (!acc.nom || acc.actif === 'non') throw new Error('Accès refusé');
-  return acc.nom;
+  return acc;
 }
 
 // Nouvelle demande : accusé de réception au demandeur + alerte au Bâtiment
@@ -548,4 +549,14 @@ function fbMail_(p) {
   } else if (s.type === 'batiment') mailMessage_(d, s.texte);
   else return { envoye: false };
   return { envoye: true };
+}
+
+// Reprise des demandes du Google Sheet dans Firebase : pour un responsable connecté (plus besoin du code Bâtiment)
+function fbExport_(p) {
+  const acc = fbMembre_(p.idToken);
+  if (acc.role !== 'Responsable') throw new Error('Réservé aux responsables');
+  const suivi = rows_(sheet_('Suivi')).map(function (s) { delete s._row; return s; });
+  return rows_(sheet_('Demandes')).map(function (d) {
+    return { demande: pub_(d, true), suivi: suivi.filter(function (s) { return s.demandeId === d.id; }) };
+  });
 }

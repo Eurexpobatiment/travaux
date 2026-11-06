@@ -210,7 +210,7 @@ const CONFIG = {
   // Bouton « Reprendre le Google Sheet » pour les responsables (pendant la transition)
   reprise: true
 };
-const FB_VER = '3'; // à augmenter à chaque modification de fb.js
+const FB_VER = '4'; // à augmenter à chaque modification de fb.js
 
 /* ======================= STRUCTURE DE LA FICHE ======================= */
 // Reprend les lignes du « Formulaire de demande travaux V2 »
@@ -796,12 +796,10 @@ async function logout(){ if(DEMO){ LS.del('dt_code'); return go('#/'); } await F
 /* Reprise des demandes du Google Sheet (responsables, pendant la transition) */
 function vReprise(){
   modal(`<h3>Reprendre les demandes du Google Sheet</h3>
-    <p class="hint">Copie dans Firebase toutes les demandes de l’ancienne version (fiches, échanges, notes internes, liens vers les pièces jointes). Le Google Sheet n’est pas modifié. Tu peux relancer la reprise au moment de la bascule : les demandes du Sheet sont alors mises à jour.</p>
-    <div class="fld"><label>Code Bâtiment de l’ancienne version</label><input class="in" id="rpCode" type="password" autocomplete="off"></div>
+    <p class="hint">Copie dans Firebase toutes les demandes de l’ancienne version (fiches, échanges, notes internes, liens vers les pièces jointes). Le Google Sheet n’est pas modifié. On peut relancer la reprise : les demandes du Sheet sont alors mises à jour.</p>
     <p class="hint" id="rpProg"></p>`,
     async ov=>{
-      const code=$('#rpCode').value.trim(); if(!code) throw new Error('Code obligatoire');
-      const r=await FB.reprise(code,m=>{const e=$('#rpProg');if(e)e.textContent=m});
+      const r=await FB.reprise(m=>{const e=$('#rpProg');if(e)e.textContent=m});
       ov.remove(); toast(`✓ ${r.demandes} demandes et ${r.suivi} échanges repris`); LISTE=[]; vBatListe();
     });
   const ok=document.querySelector('.ov [data-ok]'); ok.textContent='Reprendre';

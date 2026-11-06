@@ -357,22 +357,11 @@ export async function remove(id) {
 
 /* ---------- Reprise des demandes du Google Sheet (responsable, avec le code Bâtiment de l'ancienne version) ----------
  * Peut être relancée : le Sheet fait foi pour les demandes qu'il contient. */
-export async function reprise(code, progress = () => {}) {
+export async function reprise(progress = () => {}) {
   needBat();
   if (meRole !== 'Responsable') throw new Error('Réservé aux responsables');
-  const old = async (action, p = {}) => {
-    const r = await fetch(CFG.apiUrl, { method: 'POST', body: JSON.stringify(Object.assign({ action, code }, p)) });
-    if (!r.ok) throw new Error('Ancien serveur injoignable (' + r.status + ')');
-    const j = await r.json(); if (!j.ok) throw new Error(j.error || 'Erreur de l\'ancien serveur'); return j.data;
-  };
   progress('Lecture du Google Sheet…');
-  const L = await old('list');
-  const all = [];
-  for (let i = 0; i < L.length; i += 4) {
-    progress(`Lecture des fiches : ${Math.min(i + 4, L.length)}/${L.length}…`);
-    const r = await Promise.all(L.slice(i, i + 4).map(x => old('get', { id: x.id })));
-    all.push(...r);
-  }
+  const all = await script('fbExport', { idToken: await jeton() });
   const max = {};
   let b = F.writeBatch(db), n = 0, nbS = 0;
   const flush = async () => { if (n) { await wrap(b.commit()); b = F.writeBatch(db); n = 0; } };
