@@ -84,6 +84,11 @@ function handle_(p) {
       case 'comment': return out_({ ok: true, data: withLock_(function () { return comment_(p); }) });
       case 'upload':  return out_({ ok: true, data: withLock_(function () { return upload_(p); }) });
       case 'delete':  bat_(p); return out_({ ok: true, data: withLock_(function () { return remove_(p); }) });
+      // Version Firebase : e-mails et pièces jointes
+      case 'fbNouvelle': fbUrl_(p); return out_({ ok: true, data: fbNouvelle_(p) });
+      case 'fbMsgDem':   fbUrl_(p); return out_({ ok: true, data: fbMsgDem_(p) });
+      case 'fbMail':     fbUrl_(p); return out_({ ok: true, data: fbMail_(p) });
+      case 'fbUpload':   return out_({ ok: true, data: fbUpload_(p) });
       default: throw new Error('Action inconnue : ' + p.action);
     }
   } catch (err) {
@@ -267,7 +272,8 @@ function saveFiles_(d, files, auteur, liste) {
 
 /* ---------- E-mails ---------- */
 
-function appUrl_() { return prop_('APP_URL') || APP_URL_DEFAUT; }
+let APP_URL_FB = ''; // adresse de la version Firebase qui a appelé le script (liens des e-mails)
+function appUrl_() { return APP_URL_FB || prop_('APP_URL') || APP_URL_DEFAUT; }
 function lienSuivi_(d) { return appUrl_() + '#/suivi/' + d.id + '/' + d.cle; }
 function lienBat_(d) { return appUrl_() + '#/bat/' + d.id; }
 
@@ -428,3 +434,125 @@ function esc_(s) {
 function now_() { return Utilities.formatDate(new Date(), TZ, "yyyy-MM-dd'T'HH:mm"); }
 
 function frD_(s) { s = String(s || ''); return s ? s.slice(8, 10) + '/' + s.slice(5, 7) + '/' + s.slice(0, 4) : ''; }
+
+
+/* ======================= Version Firebase =======================
+ * Les demandes sont dans Firestore (projet partagé avec l'appli Équipe). L'appli appelle le script
+ * seulement pour les e-mails et pour ranger les pièces jointes dans Drive.
+ * Le script relit chaque fois la demande dans Firestore : il n'envoie que ce qui y est réellement enregistré.
+ * Première fois : exécuter « autoriserFirebase » dans l'éditeur, puis Déployer › Gérer les déploiements › Nouvelle version.
+ */
+const FIREBASE_PROJECT = 'equipe-batiment';
+const FIREBASE_KEY = 'AIzaSyARtP0RMkulG6c53-bnazwpGTspl0LgAhk'; // clé publique de l'appli web
+
+function autoriserFirebase() {
+  const r = UrlFetchApp.fetch('https://firestore.googleapis.com/v1/projects/' + FIREBASE_PROJECT + '/databases/(default)/documents/Compteurs/dt-test', { muteHttpExceptions: true });
+  Logger.log('Firestore répond : ' + r.getResponseCode() + ' (404 = normal, l\'accès fonctionne)');
+  Logger.log('E-mails restants aujourd\'hui : ' + MailApp.getRemainingDailyQuota());
+  dossier_();
+}
+
+function fbUrl_(p) {
+  const u = String(p.appUrl || '');
+  if (/^https:\/\/eurexpobatiment\.github\.io\/travaux\//.test(u)) APP_URL_FB = u.split('#')[0];
+}
+
+// Lecture d'un document Firestore (avec le jeton de la personne connectée, ou sans connexion pour une demande publique)
+function fsGet_(path, tok) {
+  const base = 'https://firestore.googleapis.com/v1/projects/' + FIREBASE_PROJECT + '/databases/(default)/documents/';
+  const url = base + path.split('/').map(encodeURIComponent).join('/');
+  let r = UrlFetchApp.fetch(url, { headers: tok ? { Authorization: 'Bearer ' + tok } : {}, muteHttpExceptions: true });
+  if (!tok && (r.getResponseCode() === 401 || r.getResponseCode() === 403)) r = UrlFetchApp.fetch(url + '?key=' + FIREBASE_KEY, { muteHttpExceptions: true });
+  if (r.getResponseCode() === 404) throw new Error('Demande introuvable');
+  if (r.getResponseCode() !== 200) throw new Error('Accès refusé');
+  return fsObj_(JSON.parse(r.getContentText()));
+}
+
+function fsObj_(d) {
+  const o = {};
+  const f = (d && d.fields) || {};
+  Object.keys(f).forEach(function (k) {
+    const v = f[k];
+    o[k] = 'stringValue' in v ? v.stringValue : 'integerValue' in v ? String(v.integerValue) : 'doubleValue' in v ? String(v.doubleValue)
+      : 'booleanValue' in v ? String(v.booleanValue) : '';
+  });
+  return o;
+}
+
+function cleOk_(cle) {
+  cle = String(cle || '');
+  if (!/^[0-9a-f]{32}$/.test(cle)) throw new Error('Lien de suivi invalide');
+  return cle;
+}
+
+// Évite les envois en double et les envois tardifs (le message doit être récent)
+function uneFois_(cle, quand) {
+  const c = CacheService.getScriptCache();
+  if (c.get(cle)) return false;
+  if (quand) {
+    const t = Utilities.parseDate(String(quand).slice(0, 16), TZ, "yyyy-MM-dd'T'HH:mm");
+    if (Math.abs(Date.now() - t.getTime()) > 2 * 3600 * 1000) return false;
+  }
+  c.put(cle, '1', 21600);
+  return true;
+}
+
+// Membre du service Bâtiment connecté : vérifié en relisant ses droits dans Firestore avec son propre jeton
+function fbMembre_(tok) {
+  tok = String(tok || '');
+  if (!tok) throw new Error('Connexion nécessaire');
+  const part = tok.split('.')[1] || '';
+  const payload = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(part + '==='.slice((part.length + 3) % 4))).getDataAsString());
+  const acc = fsGet_('Acces/' + String(payload.email || '').toLowerCase(), tok);
+  if (!acc.nom || acc.actif === 'non') throw new Error('Accès refusé');
+  return acc.nom;
+}
+
+// Nouvelle demande : accusé de réception au demandeur + alerte au Bâtiment
+function fbNouvelle_(p) {
+  const cle = cleOk_(p.cle);
+  const d = fsGet_('Demandes/' + cle);
+  d.cle = cle;
+  if (!uneFois_('fbnew_' + cle, d.creeLe)) return { envoye: false };
+  mailNouvelle_(d);
+  return { envoye: true };
+}
+
+// Message du demandeur → service Bâtiment
+function fbMsgDem_(p) {
+  const cle = cleOk_(p.cle);
+  const sid = String(p.sid || '');
+  const d = fsGet_('Demandes/' + cle);
+  const s = fsGet_('Demandes/' + cle + '/Suivi/' + sid);
+  d.cle = cle;
+  if (s.type !== 'demandeur' || !uneFois_('fbmsg_' + sid, s.date)) return { envoye: false };
+  mailMessageBat_(d, s.texte);
+  return { envoye: true };
+}
+
+// Changement de statut ou message du Bâtiment → demandeur
+function fbMail_(p) {
+  const tok = String(p.idToken || '');
+  fbMembre_(tok);
+  const cle = cleOk_(p.cle);
+  const sid = String(p.sid || '');
+  const d = fsGet_('Demandes/' + cle, tok);
+  const s = fsGet_('Demandes/' + cle + '/Suivi/' + sid, tok);
+  d.cle = cle;
+  if (s.public !== 'oui' || !d.email || !uneFois_('fbmail_' + sid, s.date)) return { envoye: false };
+  if (s.type === 'statut') {
+    const i = s.texte.indexOf(' — ');
+    mailStatut_(d, i >= 0 ? s.texte.slice(i + 3) : '');
+  } else if (s.type === 'batiment') mailMessage_(d, s.texte);
+  else return { envoye: false };
+  return { envoye: true };
+}
+
+// Pièces jointes : rangées dans Drive, l'appli enregistre ensuite la liste dans Firestore
+function fbUpload_(p) {
+  const cle = cleOk_(p.cle);
+  const d = fsGet_('Demandes/' + cle);
+  if (!p.files || !p.files.length) return [];
+  const auteur = clean_(p.auteur, 80) || d.demandeur || 'Demandeur';
+  return withLock_(function () { return saveFiles_(d, p.files, auteur, []); });
+}

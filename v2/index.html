@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14213d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<link rel="icon" href="../icons/icon-192.png">
+<title>Demande de travaux · Eurexpo</title>
+<style>
+:root{--navy:#14213d;--navy2:#22335a;--teal:#0f4c4a;--accent:#e63946;--bg:#f3f4f7;--card:#fff;--line:#e2e5ec;--muted:#6b7280;--txt:#1f2937;
+--ok:#2a9d5c;--warn:#e09a2b;--blue:#3a6ea5;--grey:#9aa3b2;--red:#c0392b;--batbg:#f4f7f6}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--txt);font-size:15px;line-height:1.4;-webkit-text-size-adjust:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--blue)}
+header{position:sticky;top:0;z-index:20;background:var(--navy);color:#fff;display:flex;align-items:center;gap:12px;padding:8px 16px;padding-top:max(8px,env(safe-area-inset-top));box-shadow:0 1px 4px rgba(0,0,0,.1)}
+header img{height:34px;max-width:45vw;object-fit:contain;background:#fff;border-radius:6px;padding:3px 6px;cursor:pointer}
+header h1{font-size:17px;font-weight:600;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+header h1 small{display:block;font-size:11px;font-weight:400;opacity:.7}
+.hbtn{background:rgba(255,255,255,.12);border:0;color:#fff;border-radius:20px;padding:7px 12px;cursor:pointer;white-space:nowrap;text-decoration:none;font-size:14px}
+.hbtn:hover{background:rgba(255,255,255,.22)}
+.demo{background:#fff4d6;color:#7a5a00;font-size:13px;padding:6px 16px;text-align:center}
+main{max-width:980px;margin:0 auto;padding:16px 14px 90px}
+main.wide{max-width:1240px}
+.btn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:9px 14px;cursor:pointer;white-space:nowrap;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:#c5cad6}
+.btn.pri{background:var(--navy);border-color:var(--navy);color:#fff}
+.btn.pri:hover{background:var(--navy2)}
+.btn.danger{color:var(--red);border-color:#f0c9c4}
+.btn.danger.arm{background:var(--red);color:#fff}
+.btn.sm{padding:5px 10px;font-size:13px}
+.btn[disabled]{opacity:.55;cursor:wait}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
+.bar h2{margin:0;font-size:19px;flex:1;min-width:200px}
+.sp{flex:1}
+.hint{color:var(--muted);font-size:13px}
+.empty{color:var(--muted);padding:10px 2px}
+.loading{text-align:center;color:var(--muted);padding:50px 10px}
+
+/* Accueil */
+.hero{background:#fff;border-radius:14px;padding:22px;border:1px solid var(--line);margin-bottom:16px}
+.hero h2{margin:0 0 6px;font-size:21px}
+.choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:16px}
+.choice{display:block;text-align:left;background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;cursor:pointer;text-decoration:none;color:inherit}
+.choice:hover{border-color:var(--navy);box-shadow:0 2px 10px rgba(20,33,61,.08)}
+.choice b{display:block;font-size:16px;margin-bottom:3px}
+.choice.main{background:var(--navy);color:#fff;border-color:var(--navy)}
+.choice.main .hint{color:#cbd3e6}
+.mine{background:#fff;border:1px solid var(--line);border-radius:12px;padding:6px 14px}
+.mine a{display:flex;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid #f0f2f5;text-decoration:none;color:inherit}
+.mine a:last-child{border:0}
+.mine .n{font-weight:600;color:var(--navy);font-variant-numeric:tabular-nums;min-width:100px}
+
+/* Formulaire */
+.sec{background:#fff;border:1px solid var(--line);border-radius:12px;margin-bottom:14px;overflow:hidden}
+.sec>h3{margin:0;background:var(--teal);color:#fff;font-size:15px;padding:9px 14px}
+.sec .body{padding:6px 14px 12px}
+.fld{padding:9px 0;border-bottom:1px solid #f0f2f5}
+.fld:last-child{border:0}
+.fld>label,.fld>.lab{display:block;font-weight:600;font-size:14px;margin-bottom:5px}
+.fld .req{color:var(--accent)}
+.fld .ex{font-weight:400;color:var(--muted);font-size:12.5px;font-style:italic;margin-left:6px}
+.in,textarea.in,select.in{width:100%;border:1px solid #d4d8e1;border-radius:8px;padding:9px 10px;background:#fff}
+.in:focus{outline:2px solid #b9c6e4;border-color:var(--navy2)}
+textarea.in{min-height:76px;resize:vertical}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.checks{display:flex;flex-wrap:wrap;gap:8px}
+.chk{display:inline-flex;align-items:center;gap:7px;border:1px solid #d4d8e1;border-radius:20px;padding:6px 12px;cursor:pointer;background:#fff;user-select:none;font-size:14px}
+.chk input{margin:0;accent-color:var(--navy);width:16px;height:16px}
+.chk.on{background:#eaf0fb;border-color:var(--navy2)}
+.sub{margin-top:8px}
+.err .in,.err .checks{border-color:var(--accent)}
+.err>label{color:var(--accent)}
+.files{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.file{display:flex;align-items:center;gap:8px;font-size:13.5px;background:#f6f7fa;border-radius:8px;padding:6px 10px}
+.file .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file .x{border:0;background:none;color:var(--red);cursor:pointer;font-size:16px;padding:0 4px}
+.addf{display:inline-flex;align-items:center;gap:6px;border:1px dashed #b7bfcd;border-radius:8px;padding:8px 12px;cursor:pointer;color:var(--navy);background:#fafbfc;font-size:14px}
+.addf input{display:none}
+.stick{position:sticky;bottom:0;background:linear-gradient(transparent,var(--bg) 30%);padding:18px 0 max(10px,env(safe-area-inset-bottom));display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.progress{height:6px;background:#e2e5ec;border-radius:3px;overflow:hidden;margin-top:8px}
+.progress i{display:block;height:100%;background:var(--navy);width:0;transition:width .3s}
+
+/* Fiche (lecture / Bâtiment) */
+.fiche{width:100%;border-collapse:collapse;background:#fff;font-size:14px}
+.fiche th.s{background:var(--teal);color:#fff;text-align:left;padding:8px 12px;font-size:14.5px}
+.fiche thead th{background:#fafbfc;color:#475569;font-size:12px;text-transform:uppercase;letter-spacing:.03em;text-align:left;padding:7px 12px;border-bottom:1px solid var(--line)}
+.fiche td{border-bottom:1px solid #eef0f4;padding:8px 12px;vertical-align:top}
+.fiche td.l{font-weight:600;width:26%;background:#fafbfc}
+.fiche td.v{white-space:pre-wrap;word-break:break-word}
+.fiche td.b{width:34%;background:var(--batbg);white-space:pre-wrap}
+.fiche td.b textarea{width:100%;min-height:36px;border:1px solid #d4dcd9;border-radius:6px;padding:6px 8px;background:#fff;resize:vertical;font-size:14px}
+.fiche td.b textarea:focus{outline:2px solid #a9cbc4}
+.fiche .vide{color:#b3b9c4}
+.tablewrap{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:16px}
+.panel{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:16px}
+.panel h3{margin:0 0 10px;font-size:15px}
+.grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.grid4 label{font-size:12.5px;color:var(--muted);display:block;margin-bottom:3px}
+.st{display:inline-block;border-radius:12px;padding:3px 10px;font-size:12px;font-weight:600;color:#fff;white-space:nowrap}
+.steps{display:flex;gap:4px;margin:12px 0 4px;flex-wrap:wrap}
+.steps span{flex:1;min-width:70px;text-align:center;font-size:11.5px;padding:6px 2px;border-radius:6px;background:#eceff4;color:#8a93a3}
+.steps span.done{background:#dbe7f7;color:var(--navy)}
+.steps span.cur{background:var(--navy);color:#fff;font-weight:600}
+.msgs{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.msg{border-radius:10px;padding:8px 12px;background:#f3f5f9;max-width:88%}
+.msg.bat{background:#e7f1ef;align-self:flex-end}
+.msg.sys{background:none;border:1px dashed #d5dae3;color:var(--muted);font-size:13px;align-self:center;max-width:100%}
+.msg.priv{background:#fff6e0}
+.msg .h{font-size:12px;color:var(--muted);margin-bottom:2px}
+.msg .t{white-space:pre-wrap;word-break:break-word}
+
+/* Liste Bâtiment */
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:12px;scrollbar-width:none}
+.chips button{flex:none;border:1px solid var(--line);background:#fff;border-radius:16px;padding:6px 12px;cursor:pointer;font-size:13.5px}
+.chips button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.chips b{font-weight:600;margin-left:4px;opacity:.75}
+input.search{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:#fff;min-width:0;flex:1 1 180px;max-width:320px}
+select.sel{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:#fff}
+.dl{display:flex;flex-direction:column;gap:8px}
+.dm{background:#fff;border:1px solid var(--line);border-left:5px solid var(--grey);border-radius:10px;padding:10px 14px;cursor:pointer;display:grid;grid-template-columns:1fr auto;gap:4px 12px;text-decoration:none;color:inherit}
+.dm:hover{box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.dm .t{font-weight:600}
+.dm .t .num{color:var(--navy);font-variant-numeric:tabular-nums;margin-right:6px}
+.dm .m{font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:3px 14px}
+.dm .r{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.urg{color:var(--accent);font-weight:600}
+.prio{font-size:11px;font-weight:700;border-radius:4px;padding:1px 6px;color:#fff}
+
+/* Modale, toast */
+.ov{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:50;display:flex;align-items:flex-end;justify-content:center}
+.modal{background:#fff;width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:18px 18px max(18px,env(safe-area-inset-bottom));max-height:92vh;overflow:auto}
+@media(min-width:640px){.ov{align-items:center}.modal{border-radius:14px}}
+.modal h3{margin:0 0 12px}
+.modal .fld{border:0;padding:6px 0}
+.mact{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 16px;border-radius:10px;z-index:60;box-shadow:0 4px 16px rgba(0,0,0,.2);max-width:92vw}
+.toast.ko{background:var(--red)}
+.ok-big{text-align:center;padding:26px 16px}
+.ok-big .ic{font-size:44px}
+.ok-big .num{font-size:26px;font-weight:700;color:var(--navy);margin:6px 0}
+
+@media(max-width:640px){
+  .row2{grid-template-columns:1fr}
+  .fiche td.l{width:auto}
+  .fiche.resp tr.f{display:grid;grid-template-columns:1fr}
+  .fiche.resp tr.f td{border:0;padding:6px 12px}
+  .fiche.resp tr.f td.l{padding-top:10px;background:none}
+  .fiche.resp tr.f{border-bottom:1px solid #eef0f4}
+  .fiche.resp thead{display:none}
+  .fiche.resp td.b{width:auto}
+  .fiche.resp td.b:before{content:"Bâtiment";display:block;font-size:11px;color:var(--teal);font-weight:700;text-transform:uppercase;margin-bottom:3px}
+  .dm{grid-template-columns:1fr}
+  .dm .r{align-items:flex-start;flex-direction:row}
+}
+
+/* Impression */
+#print{display:none}
+@media print{
+  @page{size:A4;margin:12mm}
+  body{background:#fff;font-size:10.5pt}
+  body>*:not(#print){display:none!important}
+  #print{display:block}
+  .pr-head{display:flex;align-items:center;gap:14px;margin-bottom:8px}
+  .pr-head img{height:30px}
+  .pr-head h1{flex:1;font-size:15pt;margin:0;text-align:right}
+  .pr-head h1 small{display:block;font-size:9pt;font-weight:400;color:#555}
+  #print table{width:100%;border-collapse:collapse}
+  #print td,#print th{border:1px solid #999;padding:4px 6px;vertical-align:top;white-space:pre-wrap;font-size:9.5pt}
+  #print th.s{background:var(--teal)!important;color:#fff!important;text-align:left;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  #print thead th{background:#eee!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  #print td.l{font-weight:600;width:27%;background:#f3f3f3!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  #print tr{page-break-inside:avoid}
+  #print .foot{margin-top:8px;font-size:8.5pt;color:#555}
+}
+</style>
+</head>
+<body>
+<header>
+  <img src="../logo.png" alt="GL events Lyon" onclick="go('#/')">
+  <h1 onclick="go('#/')">Demande de travaux<small>Service Bâtiment · Eurexpo</small></h1>
+  <span id="hright"></span>
+</header>
+<div id="demoBanner"></div>
+<main id="view"><div class="loading">Chargement…</div></main>
+<div id="print"></div>
+
+<script>
+/* ======================= RÉGLAGES ======================= */
+const CONFIG = {
+  // Colle ici l'URL /exec de l'Application Web Apps Script. Vide = mode démo (données fictives dans ce navigateur, code Bâtiment : demo)
+  apiUrl: 'https://script.google.com/macros/s/AKfycbw7DpxVxpeE0VHa1Vi2dZ4Pg0BvIYKr67Ty4Ucx2SboRD0k-rlxSZwigtzyclStUdO1/exec',
+  services: ['Bâtiment','Coordination','F&B','Access','Commercial','Communication','Direction','Exploitation','Informatique','RH','Sécurité','Technique'],
+  lieux: ['Hall 1','Hall 2','Hall 3','Hall 4','Hall 5','Hall 6','Centre de congrès','Bureaux administratifs','Parvis','Parkings','Locaux techniques'],
+  // Projet Firebase partagé avec l'appli Équipe (mêmes comptes pour l'espace Bâtiment). Vide = mode démo.
+  firebase: {
+    apiKey: 'AIzaSyARtP0RMkulG6c53-bnazwpGTspl0LgAhk', // clé publique (faite pour être dans la page)
+    authDomain: 'equipe-batiment.firebaseapp.com',
+    projectId: 'equipe-batiment',
+    storageBucket: 'equipe-batiment.firebasestorage.app',
+    messagingSenderId: '408022301135',
+    appId: '1:408022301135:web:69dee0a5fb479154657aba'
+  },
+  // Bouton « Reprendre le Google Sheet » pour les responsables (pendant la transition)
+  reprise: true
+};
+const FB_VER = '1'; // à augmenter à chaque modification de fb.js
+
+/* ======================= STRUCTURE DE LA FICHE ======================= */
+// Reprend les lignes du « Formulaire de demande travaux V2 »
+const MOTIFS = ['Sécurité / Mise aux normes','Amélioration','Esthétique','Remise en état'];
+const TYPES = ['Aménagement','Rénovation','Maintenance','Création','Autre'];
+const CONTRAINTES = ['Activité maintenue','Horaires spécifiques','Délais impératifs','Accès réglementé','Autre'];
+const IMPACTS = ['Néant','Faible','Moyen','Important'];
+const BUDGET_ST = ['Validé','À estimer'];
+const PJ = [{k:'pjPlans',cat:'Plans',l:'Plans'},{k:'pjPhotos',cat:'Photos',l:'Photos'},{k:'pjCroquis',cat:'Croquis',l:'Croquis / maquettes'},{k:'pjAutres',cat:'Autres',l:'Autres'}];
+
+const SECTIONS = [
+  {t:'Informations générales', f:[
+    {k:'demandeur', l:'Demandeur – Nom / Prénom', req:1},
+    {k:'service', l:'Service', ex:'Coordinateur - F&B - Access…', list:'services', req:1},
+    {k:'email', l:'Email', type:'email', half:'a'},
+    {k:'telephone', l:'Téléphone', type:'tel', half:'b'},
+    {k:'dateDemande', l:'Date de la demande', type:'date'},
+    {k:'lieu', l:'Lieu des travaux', ex:'Salle de réunion - N° de bureau…', list:'lieux', req:1}
+  ]},
+  {t:'Objet de la demande', f:[
+    {k:'intitule', l:'Intitulé court du projet', req:1},
+    {k:'description', l:'Description détaillée (contexte, objectif, contraintes)', ex:'Quel type de travaux ? Comment, quoi ?', type:'area', req:1},
+    {k:'motifs', l:'Motif de la demande', type:'checks', opts:MOTIFS},
+    {k:'types', l:'Type de travaux', type:'checks', opts:TYPES, more:{Autre:{k:'typeAutre',ph:'Préciser'}}},
+    {k:'objectif', l:'Objectif à atteindre', type:'area'},
+    {k:'resultat', l:'Résultat attendu final', type:'area'},
+    {k:'contraintes', l:'Contraintes particulières', type:'checks', opts:CONTRAINTES,
+      more:{'Horaires spécifiques':{k:'horairesPrecis',ph:'Préciser les horaires'},'Délais impératifs':{k:'delaisPrecis',ph:'Préciser les délais'},'Autre':{k:'contrainteAutre',ph:'Préciser'}}},
+    {k:'processus', l:'Processus envisagé', type:'area'},
+    {k:'besoinAnnexe', l:'Besoin annexe identifié', ex:'Avant de peindre : déposer les tableaux…', type:'area'}
+  ]},
+  {t:'Choix esthétiques & techniques', f:[
+    {k:'coloris', l:'Coloris', ex:'Murs - Sols - Plafond - Mobilier…'},
+    {k:'materiaux', l:'Matériaux', ex:'Bois, métal, peinture…'},
+    {k:'references', l:'Références / inspirations (liens)', type:'area'}
+  ]},
+  {t:'Délais & planning', f:[
+    {k:'dateDebut', l:'Date de démarrage souhaitée', type:'date', half:'a'},
+    {k:'dateFin', l:'Date de fin de travaux souhaitée', type:'date', half:'b'},
+    {k:'dateImperative', l:'Date impérative (si applicable)', type:'date'},
+    {k:'impact', l:'Impact sur l’activité', type:'select', opts:IMPACTS, more:{'Faible':1,'Moyen':1,'Important':1}, moreK:'impactPrecis', morePh:'Préciser l’impact'}
+  ]},
+  {t:'Budget', f:[
+    {k:'budget', l:'Budget alloué (€)', type:'number', half:'a'},
+    {k:'budgetStatut', l:'Budget', type:'select', opts:BUDGET_ST, half:'b'},
+    {k:'servicePayeur', l:'Service prenant en charge les frais', list:'services'},
+    {k:'devis', l:'Devis', ex:'À joindre à votre demande si déjà devisé', type:'file', cat:'Devis'}
+  ]},
+  {t:'Validation & suivi', f:[
+    {k:'responsable', l:'Responsable travaux'},
+    {k:'referent', l:'Chef de projet / Référent'}
+  ]},
+  {t:'Pièces jointes (à fournir)', f:PJ.map(p=>({k:p.k, l:p.l, type:'file', cat:p.cat}))}
+];
+const ALL_FIELDS = SECTIONS.flatMap(s=>s.f);
+
+const STATUTS = ['Nouvelle',"À l'étude",'Chiffrage','Validée','Planifiée','En cours','Terminée','Refusée'];
+const ST_COL = {'Nouvelle':'#e63946',"À l'étude":'#e09a2b','Chiffrage':'#b7791f','Validée':'#3a6ea5','Planifiée':'#5b5fc7','En cours':'#0f766e','Terminée':'#2a9d5c','Refusée':'#6b7280'};
+const PRIOS = ['','Basse','Normale','Haute','Urgente'];
+const PRIO_COL = {Basse:'#9aa3b2',Normale:'#3a6ea5',Haute:'#e09a2b',Urgente:'#e63946'};
+
+/* ======================= OUTILS ======================= */
+const DEMO = !CONFIG.firebase;
+const $ = s=>document.querySelector(s);
+const esc = s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n=>String(n).padStart(2,'0');
+const ymd = d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const today = ()=>ymd(new Date());
+const parseD = s=>{const [y,m,d]=String(s).slice(0,10).split('-').map(Number);return new Date(y,m-1,d)};
+const fD = s=>s?parseD(s).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'}):'';
+const fDT = s=>s?fD(s)+(s.length>10?' '+s.slice(11,16):''):'';
+const daysTo = s=>Math.round((parseD(s)-parseD(today()))/864e5);
+const euros = v=>v===''||v==null?'':Number(v).toLocaleString('fr-FR',{maximumFractionDigits:2})+' €';
+const splitL = v=>String(v||'').split(';').map(x=>x.trim()).filter(Boolean);
+const LS = {get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
+const stBadge = s=>`<span class="st" style="background:${ST_COL[s]||'#9aa3b2'}">${esc(s||'—')}</span>`;
+const prioBadge = p=>p&&p!=='Normale'?`<span class="prio" style="background:${PRIO_COL[p]}">${esc(p)}</span>`:'';
+const fmtSize = b=>b>1048576?(b/1048576).toFixed(1)+' Mo':Math.max(1,Math.round(b/1024))+' Ko';
+
+function toast(msg,ko){const t=document.createElement('div');t.className='toast'+(ko?' ko':'');t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),ko?5000:2500)}
+function go(h){ if(location.hash===h) route(); else location.hash=h; }
+function busy(btn,on,txt){ if(!btn) return; if(on){btn.dataset.t=btn.innerHTML;btn.disabled=true;btn.innerHTML=txt||'…'}else{btn.disabled=false;if(btn.dataset.t)btn.innerHTML=btn.dataset.t} }
+
+/* ======================= API ======================= */
+/* Données dans Firebase (fb.js). Le script Google ne sert plus qu'aux e-mails et aux pièces jointes. */
+let FB=null, BAT={etat:DEMO?'deconnecte':'attente'}; // etat : attente | deconnecte | non-verifie | sans-acces | ok | erreur
+const fbReady = DEMO ? Promise.resolve() : (async()=>{
+  try{ FB=await import('./fb.js?v='+FB_VER); FB.init(CONFIG); }
+  catch(e){ FB=null; BAT={etat:'erreur',err:e.message}; return; }
+  FB.onAuth(st=>{
+    const avant=BAT.etat+'|'+(BAT.nom||''); BAT=st;
+    if(avant!==BAT.etat+'|'+(BAT.nom||'')){ LISTE=[]; const h=location.hash.replace(/^#\/?/,''); if(h.startsWith('bat')) route(); else renderHeader(h.split('/')[0]); }
+  });
+})();
+async function api(action,p={}){
+  if(DEMO) return demoApi(action,JSON.parse(JSON.stringify(p)));
+  await fbReady;
+  if(!FB) throw new Error('Impossible de démarrer l’appli (pas de connexion ?)'+(BAT.err?' : '+BAT.err:''));
+  switch(action){
+    case 'create': return FB.create(p.item,p.files);
+    case 'get': return p.cle?FB.getPublic(p.id,p.cle):FB.getBat(p.id);
+    case 'list': return FB.list();
+    case 'update': return FB.update(p.id,p.item,p.message,p.prevenir);
+    case 'comment': return FB.comment(p);
+    case 'upload': return FB.upload(p);
+    case 'delete': return FB.remove(p.id);
+    default: throw new Error('Action inconnue : '+action);
+  }
+}
+// Mode démo : le « code » Bâtiment est demo
+const batCode = ()=>DEMO?LS.get('dt_code',''):'';
+const isBat = ()=>DEMO?!!batCode():BAT.etat==='ok';
+const batNom = ()=>DEMO?LS.get('dt_batnom',''):(BAT.nom||'');
+
+/* ---------- mode démo : tout reste dans ce navigateur ---------- */
+function demoApi(action,p){
+  const db=LS.get('dt_demo',null)||demoSeed();
+  const save=()=>LS.set('dt_demo',db);
+  const now=()=>{const d=new Date();return ymd(d)+'T'+pad(d.getHours())+':'+pad(d.getMinutes())};
+  const isBat=()=>p.code==='demo';
+  const find=()=>{const d=db.D.find(x=>x.id===p.id);if(!d)throw new Error('Demande introuvable');if(!isBat()&&p.cle!==d.cle)throw new Error('Lien de suivi invalide');return d};
+  const files=(list,auteur)=>{(p.files||[]).forEach(f=>list.push({cat:f.cat,nom:f.name,url:'#',par:auteur,le:now(),taille:Math.round((f.data||'').length*.75)}));return list};
+  const sv=(id,auteur,type,texte,pub)=>{const s={id:Math.random().toString(36).slice(2,12),demandeId:id,date:now(),auteur,type,texte,public:pub?'oui':'non'};db.S.push(s);return s};
+  return new Promise((res,rej)=>setTimeout(()=>{try{
+    let out;
+    switch(action){
+      case 'login': if(!isBat()) throw new Error('Code Bâtiment incorrect (en démo : demo)'); out=true; break;
+      case 'create': {
+        const it=p.item, an=today().slice(0,4);
+        const n=1+Math.max(0,...db.D.map(d=>(d.numero.startsWith('DT-'+an)?+d.numero.slice(8):0)));
+        const d={...it,id:Math.random().toString(36).slice(2,12),cle:Math.random().toString(36).slice(2),numero:`DT-${an}-${pad(n).padStart(3,'0')}`,creeLe:now(),majLe:now(),statut:'Nouvelle'};
+        d.fichiers=files([],it.demandeur); db.D.push(d); sv(d.id,d.demandeur,'statut','Demande déposée',1);
+        out={id:d.id,numero:d.numero,cle:d.cle}; break; }
+      case 'get': { const d=find(); out={demande:{...d},suivi:db.S.filter(s=>s.demandeId===d.id&&(isBat()||s.public==='oui')),bat:isBat()}; break; }
+      case 'list': if(!isBat()) throw new Error('Code Bâtiment incorrect'); out=db.D.map(d=>({...d,nbFichiers:(d.fichiers||[]).length})); break;
+      case 'update': { if(!isBat()) throw new Error('Code Bâtiment incorrect'); const d=find(); const av=d.statut; Object.assign(d,p.item,{majLe:now(),majPar:p.user});
+        if(av!==d.statut) sv(d.id,p.user||'Bâtiment','statut',d.statut+(p.message?' — '+p.message:''),1); out={...d}; break; }
+      case 'comment': { const d=find(); out=sv(d.id,isBat()?(p.user||'Bâtiment'):d.demandeur,isBat()?'batiment':'demandeur',p.texte,isBat()?p.public:1); break; }
+      case 'upload': { const d=find(); files(d.fichiers=d.fichiers||[],isBat()?(p.user||'Bâtiment'):d.demandeur); sv(d.id,isBat()?(p.user||'Bâtiment'):d.demandeur,'fichier',(p.files||[]).map(f=>f.name).join(', '),1); out=d.fichiers; break; }
+      case 'delete': { if(!isBat()) throw new Error('Code Bâtiment incorrect'); db.D=db.D.filter(d=>d.id!==p.id); db.S=db.S.filter(s=>s.demandeId!==p.id); out={id:p.id}; break; }
+      default: throw new Error('Action inconnue');
+    }
+    save(); res(JSON.parse(JSON.stringify(out)));
+  }catch(e){rej(e)}},250));
+}
+function demoSeed(){
+  const an=today().slice(0,4), d0=new Date();
+  const dd=n=>{const d=new Date(d0);d.setDate(d.getDate()+n);return ymd(d)};
+  const D=[
+    {id:'demo1',cle:'k1',numero:`DT-${an}-001`,creeLe:dd(-12)+'T09:14',majLe:dd(-3)+'T16:02',statut:'Planifiée',priorite:'Normale',chargeDe:'Équipe peinture',datePrevue:dd(9),
+     demandeur:'Julie Martin',service:'F&B',email:'julie.martin@exemple.fr',telephone:'06 12 34 56 78',dateDemande:dd(-12),lieu:'Hall 4 – office traiteur',
+     intitule:'Rafraîchissement peinture office traiteur',description:'Murs abîmés par les chariots, traces et éclats sur 2 m de hauteur.',motifs:'Esthétique; Remise en état',types:'Rénovation',
+     objectif:'Office présentable pour le prochain salon',resultat:'Murs repeints et protections d’angle posées',contraintes:'Activité maintenue; Délais impératifs',delaisPrecis:'Avant le montage du salon',
+     coloris:'Murs blanc cassé',materiaux:'Peinture lessivable, cornières inox',dateDebut:dd(7),dateFin:dd(10),dateImperative:dd(12),impact:'Faible',impactPrecis:'Office fermé une demi-journée',
+     budget:'2500',budgetStatut:'À estimer',servicePayeur:'F&B',b_materiaux:'Cornières inox 2 m × 12 à commander',b_dateDebut:'Confirmé',noteInterne:'Voir dispo nacelle',fichiers:[]},
+    {id:'demo2',cle:'k2',numero:`DT-${an}-002`,creeLe:dd(-2)+'T11:40',majLe:dd(-2)+'T11:40',statut:'Nouvelle',
+     demandeur:'Karim Benali',service:'Access',email:'',telephone:'06 98 76 54 32',dateDemande:dd(-2),lieu:'Accueil Nord',
+     intitule:'Ajout de prises au comptoir d’accueil',description:'Besoin de 4 prises 16 A + 2 RJ45 sous le comptoir pour les bornes de badges.',motifs:'Amélioration',types:'Aménagement',
+     contraintes:'Horaires spécifiques',horairesPrecis:'Hors ouverture au public',dateDebut:dd(5),impact:'Moyen',budgetStatut:'À estimer',fichiers:[]}
+  ];
+  const S=[{id:'s1',demandeId:'demo1',date:dd(-12)+'T09:14',auteur:'Julie Martin',type:'statut',texte:'Demande déposée',public:'oui'},
+           {id:'s2',demandeId:'demo1',date:dd(-3)+'T16:02',auteur:'Bâtiment',type:'statut',texte:'Planifiée — Intervention prévue la semaine prochaine.',public:'oui'},
+           {id:'s3',demandeId:'demo2',date:dd(-2)+'T11:40',auteur:'Karim Benali',type:'statut',texte:'Demande déposée',public:'oui'}];
+  return {D,S};
+}
+
+/* ======================= ROUTAGE ======================= */
+window.addEventListener('hashchange',route);
+function route(){
+  const h=location.hash.replace(/^#\/?/,'').split('/');
+  $('#view').className='';
+  window.scrollTo(0,0);
+  renderHeader(h[0]);
+  if(h[0]==='nouvelle') return vForm();
+  if(h[0]==='merci') return vMerci(h[1],h[2],decodeURIComponent(h[3]||''));
+  if(h[0]==='suivi') return vSuivi(h[1],h[2]);
+  if(h[0]==='bat') return h[1]?vBatFiche(h[1]):vBatListe();
+  vAccueil();
+}
+function renderHeader(page){
+  const bat=isBat();
+  $('#hright').innerHTML = page==='bat'
+    ? `<a class="hbtn" href="#/">← Accueil</a>`
+    : (bat?`<a class="hbtn" href="#/bat">🔧 Bâtiment</a>`:'');
+  $('#demoBanner').innerHTML = DEMO?'<div class="demo">Mode démo : rien n’est envoyé, les données restent dans ce navigateur. Code Bâtiment : <b>demo</b>.</div>':'';
+  if(!DEMO&&BAT.etat==='ok') $('#hright').innerHTML+=` <button class="hbtn" onclick="vCompte()" title="Mon compte">👤 ${esc(BAT.nom)}</button>`;
+}
+
+/* ======================= ACCUEIL ======================= */
+function vAccueil(){
+  const mes=LS.get('dt_mes',[]);
+  $('#view').innerHTML=`
+  <div class="hero">
+    <h2>Une demande de travaux pour le service Bâtiment ?</h2>
+    <div class="hint">Remplissez la fiche en ligne : elle arrive directement au service Bâtiment, qui la complète et vous tient informé de son avancement.</div>
+    <div class="choices">
+      <a class="choice main" href="#/nouvelle"><b>＋ Nouvelle demande</b><span class="hint">Environ 5 minutes. Photos, plans et devis peuvent être joints.</span></a>
+      <a class="choice" href="#/bat"><b>🔧 Espace Bâtiment</b><span class="hint">Traiter et suivre les demandes (${DEMO?'code d’accès':'compte de l’appli Équipe'}).</span></a>
+    </div>
+  </div>
+  ${mes.length?`<h3 style="margin:18px 2px 8px;font-size:15px">Mes demandes sur cet appareil</h3>
+  <div class="mine">${mes.slice().reverse().map(m=>`<a href="#/suivi/${m.id}/${m.cle}"><span class="n">${esc(m.numero)}</span><span style="flex:1">${esc(m.intitule)}</span><span class="hint">${fD(m.date)}</span></a>`).join('')}</div>
+  <p class="hint">Le lien de suivi vous est aussi envoyé par e-mail si vous en avez indiqué un.</p>`:''}`;
+}
+
+/* ======================= FORMULAIRE DEMANDEUR ======================= */
+let F={}, FILES={}; // valeurs et fichiers en cours
+function vForm(){
+  F=Object.assign({dateDemande:today()},LS.get('dt_brouillon',{}));
+  F.dateDemande=F.dateDemande||today();
+  FILES={};
+  const hasDraft=Object.keys(LS.get('dt_brouillon',{})).length>1;
+  $('#view').innerHTML=`
+    <div class="bar"><h2>Formulaire de demande de travaux</h2>${hasDraft?'<button class="btn sm" onclick="resetForm(this)">Effacer le brouillon</button>':''}</div>
+    <p class="hint" style="margin-top:-6px">Les champs marqués <span style="color:var(--accent)">*</span> sont obligatoires. Votre saisie est gardée sur cet appareil tant que la demande n’est pas envoyée.</p>
+    <form id="frm" onsubmit="return false" novalidate>
+      ${SECTIONS.map(s=>`<div class="sec"><h3>${esc(s.t)}</h3><div class="body">${fieldsHtml(s.f)}</div></div>`).join('')}
+    </form>
+    <datalist id="dl-services">${CONFIG.services.map(x=>`<option value="${esc(x)}">`).join('')}</datalist>
+    <datalist id="dl-lieux">${CONFIG.lieux.map(x=>`<option value="${esc(x)}">`).join('')}</datalist>
+    <div class="stick"><button class="btn" onclick="previewPrint()">🖨️ Aperçu / PDF</button><button class="btn pri" id="sendBtn" onclick="submitForm(this)">Envoyer la demande</button></div>
+    <div id="prog"></div>`;
+  const frm=$('#frm');
+  frm.addEventListener('input',onFormInput);
+  frm.addEventListener('change',onFormInput);
+}
+function fieldsHtml(list){
+  let html='', i=0;
+  while(i<list.length){
+    const f=list[i];
+    if(f.half==='a'&&list[i+1]&&list[i+1].half==='b'){ html+=`<div class="row2">${fieldHtml(f)}${fieldHtml(list[i+1])}</div>`; i+=2; }
+    else { html+=fieldHtml(f); i++; }
+  }
+  return html;
+}
+function fieldHtml(f){
+  const v=F[f.k]||'';
+  const lab=`<label for="f-${f.k}">${esc(f.l)}${f.req?' <span class="req">*</span>':''}${f.ex&&f.type!=='file'?`<span class="ex">ex. ${esc(f.ex)}</span>`:''}</label>`;
+  let inp='';
+  switch(f.type){
+    case 'area': inp=`<textarea class="in" id="f-${f.k}" name="${f.k}" placeholder="${esc(f.ex||'')}">${esc(v)}</textarea>`; break;
+    case 'date': inp=`<input class="in" type="date" id="f-${f.k}" name="${f.k}" value="${esc(v)}">`; break;
+    case 'number': inp=`<input class="in" type="number" inputmode="decimal" min="0" step="any" id="f-${f.k}" name="${f.k}" value="${esc(v)}">`; break;
+    case 'select': {
+      inp=`<select class="in" id="f-${f.k}" name="${f.k}"><option value="">—</option>${f.opts.map(o=>`<option ${o===v?'selected':''}>${esc(o)}</option>`).join('')}</select>`;
+      if(f.moreK) inp+=`<div class="sub" id="more-${f.moreK}" ${f.more[v]?'':'hidden'}><input class="in" name="${f.moreK}" placeholder="${esc(f.morePh)}" value="${esc(F[f.moreK]||'')}"></div>`;
+      break; }
+    case 'checks': {
+      const sel=splitL(v);
+      inp=`<div class="checks" id="f-${f.k}">${f.opts.map(o=>`<label class="chk ${sel.includes(o)?'on':''}"><input type="checkbox" name="${f.k}" value="${esc(o)}" ${sel.includes(o)?'checked':''}>${esc(o)}</label>`).join('')}</div>`;
+      if(f.more) for(const o in f.more){ const m=f.more[o]; inp+=`<div class="sub" id="more-${m.k}" ${sel.includes(o)?'':'hidden'}><input class="in" name="${m.k}" placeholder="${esc(o+' : '+m.ph)}" value="${esc(F[m.k]||'')}"></div>`; }
+      return `<div class="fld" data-k="${f.k}"><div class="lab">${esc(f.l)} <span class="ex">(cocher la ou les cases concernées)</span></div>${inp}</div>`; }
+    case 'file':
+      return `<div class="fld" data-k="${f.k}"><div class="lab">${esc(f.l)}${f.ex?`<span class="ex">${esc(f.ex)}</span>`:''}</div>
+        <label class="addf">📎 Ajouter ${f.cat==='Photos'?'des photos':'un fichier'}<input type="file" multiple ${f.cat==='Photos'?'accept="image/*"':''} onchange="addFiles('${f.cat}',this)"></label>
+        <div class="files" id="files-${f.cat}"></div>
+        <input class="in" style="margin-top:6px" name="${f.k}" placeholder="Commentaire (facultatif)" value="${esc(v)}"></div>`;
+    default: inp=`<input class="in" type="${f.type||'text'}" id="f-${f.k}" name="${f.k}" value="${esc(v)}" ${f.list?`list="dl-${f.list}"`:''} ${f.type==='email'?'autocomplete="email"':''} ${f.type==='tel'?'autocomplete="tel"':''} ${f.k==='demandeur'?'autocomplete="name"':''}>`;
+  }
+  return `<div class="fld" data-k="${f.k}">${lab}${inp}</div>`;
+}
+function readForm(){
+  const fd=new FormData($('#frm')), o={};
+  ALL_FIELDS.forEach(f=>{ o[f.k]=f.type==='checks'?fd.getAll(f.k).join('; '):(fd.get(f.k)||'').trim(); });
+  ['typeAutre','horairesPrecis','delaisPrecis','contrainteAutre','impactPrecis'].forEach(k=>o[k]=(fd.get(k)||'').trim());
+  return o;
+}
+function onFormInput(e){
+  const t=e.target;
+  if(t.type==='checkbox'){
+    t.closest('.chk').classList.toggle('on',t.checked);
+    const f=ALL_FIELDS.find(x=>x.k===t.name);
+    if(f&&f.more&&f.more[t.value]) $('#more-'+f.more[t.value].k).hidden=!t.checked;
+  }
+  if(t.name==='impact'){ const f=ALL_FIELDS.find(x=>x.k==='impact'); $('#more-impactPrecis').hidden=!f.more[t.value]; }
+  const fld=t.closest('.fld'); if(fld) fld.classList.remove('err');
+  F=readForm(); LS.set('dt_brouillon',F);
+}
+function resetForm(btn){ if(!confirmArm(btn)) return; LS.del('dt_brouillon'); vForm(); }
+function confirmArm(btn){ if(btn.dataset.arm){return true} btn.dataset.arm=1; const t=btn.textContent; btn.textContent='Confirmer ?'; btn.classList.add('danger','arm'); setTimeout(()=>{if(btn.isConnected){delete btn.dataset.arm;btn.textContent=t;btn.classList.remove('arm')}},3000); return false; }
+
+/* ---------- pièces jointes ---------- */
+const MAX_TOTAL = 35*1024*1024;
+function addFiles(cat,inp){
+  const list=FILES[cat]=FILES[cat]||[];
+  for(const f of inp.files){
+    if(f.size>25*1024*1024){ toast(f.name+' est trop lourd (25 Mo max)',1); continue; }
+    list.push(f);
+  }
+  inp.value='';
+  drawFiles(cat);
+}
+function drawFiles(cat,box){
+  const el=box||$('#files-'+cat); if(!el) return;
+  el.innerHTML=(FILES[cat]||[]).map((f,i)=>`<div class="file">${/^image\//.test(f.type)?'🖼️':'📄'}<span class="nm">${esc(f.name)}</span><span class="hint">${fmtSize(f.size)}</span><button class="x" title="Retirer" onclick="FILES['${cat}'].splice(${i},1);drawFiles('${cat}')">✕</button></div>`).join('');
+}
+// Réduit les photos (2000 px, JPEG) pour que l'envoi reste rapide sur téléphone
+function shrink(file){
+  return new Promise(res=>{
+    if(!/^image\/(jpeg|png|webp|heic|heif)/i.test(file.type)||file.size<700*1024) return res(file);
+    const url=URL.createObjectURL(file), img=new Image();
+    img.onload=()=>{
+      const k=Math.min(1,2000/Math.max(img.width,img.height));
+      const c=document.createElement('canvas'); c.width=Math.round(img.width*k); c.height=Math.round(img.height*k);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      c.toBlob(b=>{URL.revokeObjectURL(url); if(!b||b.size>=file.size) return res(file);
+        res(new File([b],file.name.replace(/\.(png|webp|heic|heif)$/i,'.jpg'),{type:'image/jpeg'}));},'image/jpeg',.82);
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);res(file)};
+    img.src=url;
+  });
+}
+const b64 = file=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]);r.onerror=()=>rej(new Error('Lecture impossible : '+file.name));r.readAsDataURL(file)});
+async function packFiles(map){
+  const out=[]; let total=0;
+  for(const cat in map) for(const f0 of map[cat]){
+    const f=await shrink(f0); total+=f.size;
+    if(total>MAX_TOTAL) throw new Error('Pièces jointes trop lourdes (35 Mo au total). Envoyez la demande, puis ajoutez le reste depuis la page de suivi.');
+    out.push({cat,name:f.name,type:f.type||'application/octet-stream',data:await b64(f)});
+  }
+  return out;
+}
+
+/* ---------- envoi ---------- */
+async function submitForm(btn){
+  const o=readForm();
+  const errs=[];
+  ALL_FIELDS.filter(f=>f.req&&!o[f.k]).forEach(f=>errs.push(f.k));
+  if(!o.email&&!o.telephone) errs.push('email','telephone');
+  if(o.email&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(o.email)) errs.push('email');
+  if(o.dateDebut&&o.dateFin&&o.dateFin<o.dateDebut) errs.push('dateFin');
+  document.querySelectorAll('.fld.err').forEach(x=>x.classList.remove('err'));
+  if(errs.length){
+    errs.forEach(k=>{const el=document.querySelector(`.fld[data-k="${k}"]`); if(el) el.classList.add('err')});
+    const first=document.querySelector('.fld.err'); first&&first.scrollIntoView({behavior:'smooth',block:'center'});
+    toast(errs.includes('dateFin')&&errs.length===1?'La date de fin est avant la date de début':(!o.email&&!o.telephone&&errs.length===2?'Indiquez un e-mail ou un téléphone':'Complétez les champs en rouge'),1);
+    return;
+  }
+  busy(btn,true,'Envoi…');
+  try{
+    const files=await packFiles(FILES);
+    if(files.length) btn.innerHTML='Envoi des pièces jointes…';
+    const r=await api('create',{item:o,files});
+    const mes=LS.get('dt_mes',[]); mes.push({id:r.id,cle:r.cle,numero:r.numero,intitule:o.intitule,date:today()}); LS.set('dt_mes',mes);
+    LS.del('dt_brouillon'); FILES={};
+    if(r.warn) toast(r.warn,1);
+    go(`#/merci/${r.id}/${r.cle}/${encodeURIComponent(r.numero)}`);
+  }catch(e){ toast(e.message,1); busy(btn,false); }
+}
+function vMerci(id,cle,num){
+  const lien=location.href.split('#')[0]+`#/suivi/${id}/${cle}`;
+  $('#view').innerHTML=`<div class="hero ok-big"><div class="ic">✅</div><div>Votre demande a bien été transmise au service Bâtiment.</div>
+    <div class="num">${esc(num)}</div>
+    <p class="hint">Gardez ce lien pour suivre l’avancement, ajouter des pièces jointes ou échanger avec le service Bâtiment${DEMO?'':' (il vous est aussi envoyé par e-mail si vous en avez donné un)'}.</p>
+    <p style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><a class="btn pri" href="#/suivi/${id}/${cle}">Suivre ma demande</a><button class="btn" onclick="copyLink('${esc(lien)}')">📋 Copier le lien</button><a class="btn" href="#/nouvelle">Nouvelle demande</a></p></div>`;
+}
+async function copyLink(l){ try{await navigator.clipboard.writeText(l);toast('Lien copié')}catch(e){prompt('Lien de suivi :',l)} }
+
+/* ======================= FICHE (affichage) ======================= */
+function valText(d,f){
+  let v=d[f.k]||'';
+  if(f.type==='date') v=fD(v);
+  if(f.type==='number'&&v) v=euros(v);
+  if(f.type==='checks'){
+    v=splitL(v).map(o=>{const m=f.more&&f.more[o];return '☑ '+o+(m&&d[m.k]?' : '+d[m.k]:'')}).join('\n');
+  }
+  if(f.moreK&&d[f.moreK]) v+=(v?' — ':'')+d[f.moreK];
+  if(f.type==='file'){
+    const fs=(d.fichiers||[]).filter(x=>x.cat===f.cat);
+    return {html:fs.map(x=>`<div>📎 <a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.nom)}</a></div>`).join('')+(v?`<div>${esc(v)}</div>`:''), txt:fs.map(x=>x.nom).join('\n')+(v?(fs.length?'\n':'')+v:'')};
+  }
+  return {html:esc(v),txt:v};
+}
+function ficheTable(d,mode){ // mode : 'view' | 'bat'
+  const showB = mode==='bat' || ALL_FIELDS.some(f=>d['b_'+f.k]);
+  return `<div class="tablewrap"><table class="fiche resp"><thead><tr><th>Rubrique</th><th>Demandeur</th>${showB?'<th>Réponse Bâtiment</th>':''}</tr></thead><tbody>
+  ${SECTIONS.map(s=>`<tr><th class="s" colspan="${showB?3:2}">${esc(s.t)}</th></tr>`+s.f.map(f=>{
+    const v=valText(d,f), b=d['b_'+f.k]||'';
+    const bcell = mode==='bat' ? `<td class="b"><textarea data-b="b_${f.k}" rows="1" oninput="grow(this);dirty()">${esc(b)}</textarea></td>`
+                 : showB ? `<td class="b">${b?esc(b):'<span class="vide">—</span>'}</td>` : '';
+    return `<tr class="f"><td class="l">${esc(f.l)}</td><td class="v">${v.html||'<span class="vide">—</span>'}</td>${bcell}</tr>`;
+  }).join('')).join('')}</tbody></table></div>`;
+}
+function grow(t){ t.style.height='auto'; t.style.height=(t.scrollHeight+2)+'px'; }
+function stepsHtml(st){
+  if(st==='Refusée') return `<div class="steps"><span class="cur" style="background:${ST_COL['Refusée']}">Refusée</span></div>`;
+  const L=STATUTS.filter(s=>s!=='Refusée'), i=L.indexOf(st);
+  return `<div class="steps">${L.map((s,j)=>`<span class="${j<i?'done':j===i?'cur':''}">${esc(s)}</span>`).join('')}</div>`;
+}
+function msgsHtml(list,bat){
+  if(!list.length) return '<div class="empty">Aucun échange pour le moment.</div>';
+  return `<div class="msgs">${list.slice().sort((a,b)=>a.date<b.date?-1:1).map(s=>{
+    const cls = s.type==='statut'||s.type==='fichier' ? 'sys' : s.type==='batiment' ? 'bat'+(s.public==='non'?' priv':'') : '';
+    const head = s.type==='statut' ? '🔄 '+esc(s.auteur) : s.type==='fichier' ? '📎 '+esc(s.auteur)+' a ajouté' : esc(s.auteur)+(s.type==='batiment'?' · Bâtiment':'')+(s.public==='non'&&bat?' · 🔒 note interne':'');
+    return `<div class="msg ${cls}"><div class="h">${head} · ${fDT(s.date)}</div><div class="t">${esc(s.texte)}</div></div>`;
+  }).join('')}</div>`;
+}
+function filesPanel(d,who){
+  const fs=d.fichiers||[];
+  return `<div class="panel"><h3>📎 Pièces jointes (${fs.length})</h3>
+    ${fs.length?`<div class="files">${fs.map(x=>`<div class="file">📄<span class="nm"><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.nom)}</a></span><span class="hint">${esc(x.cat)} · ${esc(x.par||'')} · ${fD(x.le)}</span></div>`).join('')}</div>`:'<div class="empty">Aucune pièce jointe.</div>'}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px">
+      <select class="sel" id="upCat">${['Devis','Plans','Photos','Croquis','Autres'].map(c=>`<option>${c}</option>`).join('')}</select>
+      <label class="addf">📎 Ajouter des fichiers<input type="file" multiple onchange="uploadMore(this,'${who}')"></label>
+    </div></div>`;
+}
+let CUR=null; // {demande, suivi, auth}
+async function uploadMore(inp,who){
+  const cat=$('#upCat').value, files=[...inp.files]; inp.value='';
+  if(!files.length) return;
+  const lab=inp.parentElement; lab.style.opacity=.5; toast('Envoi en cours…');
+  try{
+    const pk=await packFiles({[cat]:files});
+    await api('upload',{...CUR.auth,user:batNom(),id:CUR.demande.id,files:pk});
+    toast('Fichier(s) ajouté(s)');
+    who==='bat'?vBatFiche(CUR.demande.id,true):vSuivi(CUR.demande.id,CUR.auth.cle);
+  }catch(e){ toast(e.message,1); lab.style.opacity=1; }
+}
+
+/* ======================= SUIVI DEMANDEUR ======================= */
+async function vSuivi(id,cle){
+  if(!CUR||CUR.demande.id!==id) $('#view').innerHTML='<div class="loading">Chargement de la demande…</div>';
+  try{
+    const r=await api('get',{id,cle});
+    CUR={...r,auth:{cle}};
+    const d=r.demande;
+    $('#view').innerHTML=`
+      <div class="bar"><h2>${esc(d.numero)} · ${esc(d.intitule)}</h2>${stBadge(d.statut)}<button class="btn sm" onclick="printFiche()">🖨️ PDF</button></div>
+      <div class="panel"><div class="hint">Déposée le ${fDT(d.creeLe)} par ${esc(d.demandeur)}${d.service?' ('+esc(d.service)+')':''}${d.datePrevue?` · <b style="color:var(--navy)">Intervention prévue le ${fD(d.datePrevue)}</b>`:''}${d.chargeDe?` · Pris en charge par ${esc(d.chargeDe)}`:''}</div>${stepsHtml(d.statut)}</div>
+      <div class="panel"><h3>💬 Échanges avec le service Bâtiment</h3>${msgsHtml(r.suivi,false)}
+        <textarea class="in" id="msgTxt" placeholder="Écrire au service Bâtiment…" style="min-height:60px"></textarea>
+        <div class="mact" style="margin-top:8px"><button class="btn pri" onclick="sendMsg(this,false)">Envoyer</button></div></div>
+      ${filesPanel(d,'dem')}
+      <h3 style="margin:4px 2px 8px;font-size:15px">La fiche</h3>
+      ${ficheTable(d,'view')}`;
+  }catch(e){
+    $('#view').innerHTML=`<div class="loading">Impossible d’ouvrir cette demande.<br>${esc(e.message)}<br><br><a class="btn" href="#/">Accueil</a></div>`;
+  }
+}
+async function sendMsg(btn,bat){
+  const t=$('#msgTxt').value.trim(); if(!t) return;
+  busy(btn,true,'Envoi…');
+  try{
+    const p={...CUR.auth,id:CUR.demande.id,texte:t};
+    if(bat){ p.user=batNom(); p.public=!$('#msgPriv').checked; p.prevenir=$('#msgMail')&&$('#msgMail').checked; }
+    const r=await api('comment',p); if(r&&r.warn) toast(r.warn,1);
+    bat?vBatFiche(CUR.demande.id,true):vSuivi(CUR.demande.id,CUR.auth.cle);
+  }catch(e){ toast(e.message,1); busy(btn,false); }
+}
+
+/* ======================= ESPACE BÂTIMENT ======================= */
+function vLogin(){
+  if(DEMO) return vLoginDemo();
+  if(BAT.etat==='attente'){ $('#view').innerHTML='<div class="loading">Connexion…</div>'; return; }
+  if(BAT.etat==='erreur'){ $('#view').innerHTML=`<div class="loading">Impossible de démarrer l’appli (pas de connexion ?).<br>${esc(BAT.err||'')}<br><br><button class="btn" onclick="location.reload()">Réessayer</button></div>`; return; }
+  if(BAT.etat==='non-verifie'){ $('#view').innerHTML=`<div class="hero" style="max-width:460px;margin:30px auto"><h2>Vérifie ton adresse</h2>
+    <p>Un mail de vérification a été envoyé à <b>${esc(BAT.email)}</b>. Ouvre-le et touche le lien, puis reviens ici.</p>
+    <div class="mact"><button class="btn" onclick="FB.logout()">Changer d’adresse</button><button class="btn" onclick="FB.resendVerif().then(()=>toast('Mail renvoyé'),e=>toast(e.message,1))">Renvoyer le mail</button><button class="btn pri" onclick="location.reload()">C’est fait</button></div></div>`; return; }
+  if(BAT.etat==='sans-acces'){ $('#view').innerHTML=`<div class="hero" style="max-width:460px;margin:30px auto"><h2>Accès pas ouvert</h2>
+    <p>Le compte <b>${esc(BAT.email)}</b> n’est pas dans l’équipe Bâtiment.</p>
+    <p class="hint">Un responsable peut saisir cette adresse à côté de ton nom dans l’onglet 👥 Équipe de l’appli Équipe.${BAT.err?'<br>'+esc(BAT.err):''}</p>
+    <div class="mact"><button class="btn" onclick="FB.logout()">Se déconnecter</button></div></div>`; return; }
+  const em=LS.get('dt_email','')||LS.get('equipe.email','');
+  $('#view').innerHTML=`<div class="hero" style="max-width:420px;margin:30px auto">
+    <h2>🔧 Espace Bâtiment</h2><p class="hint">Même adresse e-mail et même mot de passe que l’appli Équipe Bâtiment.</p>
+    <div class="fld"><label>Adresse e-mail</label><input class="in" id="lgEm" type="email" inputmode="email" autocomplete="username" value="${esc(em)}"></div>
+    <div class="fld"><label>Mot de passe</label><input class="in" id="lgPw" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin($('#lgBtn'))"></div>
+    <div class="mact"><button class="btn" onclick="oubli()">Mot de passe oublié</button><button class="btn pri" id="lgBtn" onclick="doLogin(this)">Se connecter</button></div></div>`;
+  em?$('#lgPw').focus():$('#lgEm').focus();
+}
+async function doLogin(btn){
+  const em=$('#lgEm').value.trim(), pw=$('#lgPw').value;
+  if(!em||!pw) return toast('Adresse et mot de passe obligatoires',1);
+  LS.set('dt_email',em);
+  busy(btn,true,'Connexion…');
+  try{ await fbReady; await FB.login(em,pw); }   // la suite arrive par FB.onAuth
+  catch(e){ toast(e.message,1); busy(btn,false); }
+}
+async function oubli(){
+  const em=$('#lgEm').value.trim(); if(!em) return toast('Saisis d’abord ton adresse e-mail',1);
+  try{ await fbReady; await FB.resetPw(em); toast('Mail envoyé à '+em+' pour choisir un nouveau mot de passe'); }catch(e){ toast(e.message,1); }
+}
+function vCompte(){
+  modal(`<h3>Mon compte</h3><p><b>${esc(BAT.nom)}</b>${BAT.role?' · '+esc(BAT.role):''}</p><p class="hint">Connecté avec ${esc(BAT.email)} (compte de l’appli Équipe).</p>`,
+    async ov=>{ ov.remove(); await FB.logout(); go('#/'); });
+  const ok=document.querySelector('.ov [data-ok]'); ok.textContent='Se déconnecter'; ok.classList.remove('pri'); ok.classList.add('danger');
+}
+// Mode démo : nom + code « demo »
+function vLoginDemo(){
+  $('#view').innerHTML=`<div class="hero" style="max-width:420px;margin:30px auto">
+    <h2>🔧 Espace Bâtiment</h2><p class="hint">Réservé au service Bâtiment.</p>
+    <div class="fld"><label>Ton nom</label><input class="in" id="lgNom" value="${esc(batNom())}" autocomplete="name"></div>
+    <div class="fld"><label>Code d’accès</label><input class="in" id="lgCode" type="password" onkeydown="if(event.key==='Enter')doLoginDemo($('#lgBtn'))"></div>
+    <div class="mact"><button class="btn pri" id="lgBtn" onclick="doLoginDemo(this)">Entrer</button></div></div>`;
+}
+async function doLoginDemo(btn){
+  const nom=$('#lgNom').value.trim(), code=$('#lgCode').value.trim();
+  if(!nom) return toast('Indique ton nom',1);
+  busy(btn,true,'Vérification…');
+  try{ await demoApi('login',{code}); LS.set('dt_code',code); LS.set('dt_batnom',nom); route(); }
+  catch(e){ toast(e.message,1); busy(btn,false); }
+}
+async function logout(){ if(DEMO){ LS.del('dt_code'); return go('#/'); } await FB.logout(); go('#/'); }
+
+/* Reprise des demandes du Google Sheet (responsables, pendant la transition) */
+function vReprise(){
+  modal(`<h3>Reprendre les demandes du Google Sheet</h3>
+    <p class="hint">Copie dans Firebase toutes les demandes de l’ancienne version (fiches, échanges, notes internes, liens vers les pièces jointes). Le Google Sheet n’est pas modifié. Tu peux relancer la reprise au moment de la bascule : les demandes du Sheet sont alors mises à jour.</p>
+    <div class="fld"><label>Code Bâtiment de l’ancienne version</label><input class="in" id="rpCode" type="password" autocomplete="off"></div>
+    <p class="hint" id="rpProg"></p>`,
+    async ov=>{
+      const code=$('#rpCode').value.trim(); if(!code) throw new Error('Code obligatoire');
+      const r=await FB.reprise(code,m=>{const e=$('#rpProg');if(e)e.textContent=m});
+      ov.remove(); toast(`✓ ${r.demandes} demandes et ${r.suivi} échanges repris`); LISTE=[]; vBatListe();
+    });
+  const ok=document.querySelector('.ov [data-ok]'); ok.textContent='Reprendre';
+}
+
+let LISTE=[], FILTRE=LS.get('dt_filtre','actives'), RECH='';
+async function vBatListe(){
+  if(!isBat()) return vLogin();
+  $('#view').className='wide';
+  if(!LISTE.length) $('#view').innerHTML='<div class="loading">Chargement des demandes…</div>';
+  try{ LISTE=await api('list',{code:batCode()}); drawListe(); }
+  catch(e){ if(DEMO&&/code/i.test(e.message)){LS.del('dt_code');toast(e.message,1);return vLogin()} $('#view').innerHTML=`<div class="loading">${esc(e.message)}<br><br><button class="btn" onclick="vBatListe()">Réessayer</button></div>`; }
+}
+function drawListe(){
+  const actives=d=>!['Terminée','Refusée'].includes(d.statut);
+  const cnt=s=>LISTE.filter(d=>s==='actives'?actives(d):s==='toutes'?true:d.statut===s).length;
+  const filt=[['actives','En cours de traitement'],...STATUTS.map(s=>[s,s]),['toutes','Toutes']];
+  let L=LISTE.filter(d=>FILTRE==='actives'?actives(d):FILTRE==='toutes'?true:d.statut===FILTRE);
+  if(RECH){ const q=RECH.toLowerCase(); L=L.filter(d=>[d.numero,d.intitule,d.demandeur,d.service,d.lieu,d.chargeDe].join(' ').toLowerCase().includes(q)); }
+  const pr={Urgente:0,Haute:1,Normale:2,'':2,Basse:3};
+  L.sort((a,b)=>(a.statut==='Nouvelle'?0:1)-(b.statut==='Nouvelle'?0:1)||(pr[a.priorite||'']-pr[b.priorite||''])||String(b.creeLe).localeCompare(a.creeLe));
+  $('#view').innerHTML=`
+    <div class="bar"><h2>Demandes de travaux</h2>
+      <input class="search" placeholder="🔍 Rechercher (n°, projet, demandeur, lieu…)" value="${esc(RECH)}" oninput="RECH=this.value;drawListe();this.focus();this.setSelectionRange(this.value.length,this.value.length)">
+      <button class="btn" onclick="vBatListe()" title="Actualiser">↻</button>
+      <a class="btn" href="#/nouvelle">＋ Saisir une demande</a>
+      ${!DEMO&&CONFIG.reprise&&BAT.role==='Responsable'?'<button class="btn" onclick="vReprise()" title="Copier les demandes de l’ancienne version">⇪ Reprendre le Google Sheet</button>':''}
+      <button class="btn" onclick="logout()" title="Se déconnecter">⎋ ${esc(batNom())}</button></div>
+    <div class="chips">${filt.map(([k,l])=>{const n=cnt(k);return (n||k==='actives'||k==='toutes'||k===FILTRE)?`<button class="${k===FILTRE?'on':''}" onclick="FILTRE='${k.replace(/'/g,"\\'")}';LS.set('dt_filtre',FILTRE);drawListe()">${esc(l)}<b>${n}</b></button>`:''}).join('')}</div>
+    <div class="dl">${L.length?L.map(d=>{
+      const imp=d.dateImperative?daysTo(d.dateImperative):null;
+      return `<a class="dm" href="#/bat/${d.id}" style="border-left-color:${ST_COL[d.statut]||'#9aa3b2'}">
+        <div><div class="t"><span class="num">${esc(d.numero)}</span>${esc(d.intitule)} ${prioBadge(d.priorite)}</div>
+        <div class="m"><span>👤 ${esc(d.demandeur)}${d.service?' · '+esc(d.service):''}</span>${d.lieu?`<span>📍 ${esc(d.lieu)}</span>`:''}<span>Déposée le ${fD(d.creeLe)}</span>
+        ${d.dateDebut?`<span>Début souhaité ${fD(d.dateDebut)}</span>`:''}${imp!==null&&actives(d)?`<span class="${imp<=14?'urg':''}">⏰ Impératif ${fD(d.dateImperative)}${imp>=0?` (J-${imp})`:' (dépassé)'}</span>`:''}
+        ${d.nbFichiers?`<span>📎 ${d.nbFichiers}</span>`:''}</div></div>
+        <div class="r">${stBadge(d.statut)}${d.datePrevue?`<span class="hint">Prévue ${fD(d.datePrevue)}</span>`:''}${d.chargeDe?`<span class="hint">${esc(d.chargeDe)}</span>`:''}</div></a>`;
+    }).join(''):'<div class="empty">Aucune demande ici.</div>'}</div>`;
+}
+
+let DIRTY=false;
+function dirty(){ DIRTY=true; const b=$('#saveBtn'); if(b) b.classList.add('pri'); }
+window.addEventListener('beforeunload',e=>{ if(DIRTY){e.preventDefault();e.returnValue=''} });
+
+async function vBatFiche(id,keepScroll){
+  if(!isBat()) return vLogin();
+  const y=window.scrollY;
+  $('#view').className='wide';
+  if(!keepScroll) $('#view').innerHTML='<div class="loading">Chargement…</div>';
+  try{
+    const r=await api('get',{id,code:batCode()});
+    CUR={...r,auth:DEMO?{code:batCode()}:{}}; DIRTY=false;
+    const d=r.demande;
+    $('#view').innerHTML=`
+      <div class="bar"><a class="btn sm" href="#/bat">← Liste</a><h2>${esc(d.numero)} · ${esc(d.intitule)}</h2>${stBadge(d.statut)}</div>
+      <div class="panel"><h3>Traitement</h3>
+        <div class="grid4">
+          <div><label>Statut</label><select class="in" id="bStatut" onchange="dirty()">${STATUTS.map(s=>`<option ${s===d.statut?'selected':''}>${esc(s)}</option>`).join('')}</select></div>
+          <div><label>Priorité</label><select class="in" id="bPrio" onchange="dirty()">${PRIOS.map(p=>`<option value="${p}" ${p===(d.priorite||'')?'selected':''}>${p||'—'}</option>`).join('')}</select></div>
+          <div><label>Pris en charge par</label><input class="in" id="bCharge" value="${esc(d.chargeDe||'')}" oninput="dirty()" placeholder="Technicien, entreprise…"></div>
+          <div><label>Date d’intervention prévue</label><input class="in" type="date" id="bDate" value="${esc(d.datePrevue||'')}" onchange="dirty()"></div>
+        </div>
+        <div style="margin-top:10px"><label class="hint">🔒 Note interne (jamais visible par le demandeur)</label><textarea class="in" id="bNote" oninput="dirty()" style="min-height:50px">${esc(d.noteInterne||'')}</textarea></div>
+        ${stepsHtml(d.statut)}
+        <div class="hint">Déposée le ${fDT(d.creeLe)} · dernière mise à jour ${fDT(d.majLe)}${d.majPar?' par '+esc(d.majPar):''} ·
+          ${d.email?`<a href="mailto:${esc(d.email)}?subject=${encodeURIComponent('Demande de travaux '+d.numero)}">${esc(d.email)}</a>`:''} ${d.telephone?`<a href="tel:${esc(d.telephone.replace(/\s/g,''))}">${esc(d.telephone)}</a>`:''}</div>
+      </div>
+      <h3 style="margin:4px 2px 4px;font-size:15px">La fiche</h3>
+      <p class="hint" style="margin:0 2px 8px">La colonne de droite correspond à « A remplir par le Bâtiment » : le demandeur la voit sur sa page de suivi.</p>
+      ${ficheTable(d,'bat')}
+      ${filesPanel(d,'bat')}
+      <div class="panel"><h3>💬 Échanges</h3>${msgsHtml(r.suivi,true)}
+        <textarea class="in" id="msgTxt" placeholder="Message au demandeur ou note…" style="min-height:60px"></textarea>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:8px">
+          <label class="hint"><input type="checkbox" id="msgPriv" onchange="$('#msgMail').disabled=this.checked;if(this.checked)$('#msgMail').checked=false"> 🔒 Note interne</label>
+          ${d.email?`<label class="hint"><input type="checkbox" id="msgMail" checked> Prévenir ${esc(d.demandeur)} par e-mail</label>`:'<span class="hint">Pas d’e-mail pour ce demandeur</span>'}
+          <span class="sp"></span><button class="btn pri" onclick="sendMsg(this,true)">Envoyer</button></div></div>
+      <div class="stick">
+        <button class="btn danger" onclick="delDemande(this)">Supprimer</button><span class="sp"></span>
+        <button class="btn" onclick="printFiche()">🖨️ Imprimer / PDF</button>
+        <button class="btn" id="saveBtn" onclick="saveBat(this)">💾 Enregistrer</button></div>`;
+    document.querySelectorAll('.fiche textarea').forEach(grow);
+    if(keepScroll) window.scrollTo(0,y);
+  }catch(e){
+    if(DEMO&&/code/i.test(e.message)){LS.del('dt_code');toast(e.message,1);return vLogin()}
+    $('#view').innerHTML=`<div class="loading">${esc(e.message)}<br><br><a class="btn" href="#/bat">← Liste</a></div>`;
+  }
+}
+function collectBat(){
+  const item={statut:$('#bStatut').value,priorite:$('#bPrio').value,chargeDe:$('#bCharge').value.trim(),datePrevue:$('#bDate').value,noteInterne:$('#bNote').value.trim()};
+  document.querySelectorAll('[data-b]').forEach(t=>item[t.dataset.b]=t.value.trim());
+  return item;
+}
+async function saveBat(btn){
+  const item=collectBat(), d=CUR.demande;
+  if(item.statut!==d.statut){
+    return modal(`<h3>Passer en « ${esc(item.statut)} »</h3>
+      <div class="fld"><label>Message pour le demandeur (facultatif)</label><textarea class="in" id="mMsg" placeholder="${item.statut==='Planifiée'&&item.datePrevue?'Intervention prévue le '+fD(item.datePrevue):''}"></textarea></div>
+      ${d.email?`<label class="hint"><input type="checkbox" id="mMail" checked> Prévenir ${esc(d.demandeur)} par e-mail (${esc(d.email)})</label>`:'<p class="hint">Pas d’e-mail renseigné : le demandeur verra le changement sur sa page de suivi.</p>'}`,
+      async (ov)=>{ await doSave(btn,item,$('#mMsg').value.trim()||(item.statut==='Planifiée'&&item.datePrevue?'Intervention prévue le '+fD(item.datePrevue):''),$('#mMail')&&$('#mMail').checked); ov.remove(); });
+  }
+  doSave(btn,item,'',false);
+}
+async function doSave(btn,item,message,prevenir){
+  busy(btn,true,'Enregistrement…');
+  try{
+    const r=await api('update',{code:batCode(),user:batNom(),id:CUR.demande.id,item,message,prevenir});
+    DIRTY=false; r&&r.warn?toast('Enregistré · '+r.warn,1):toast('Enregistré'); LISTE=[]; vBatFiche(CUR.demande.id,true);
+  }catch(e){ toast(e.message,1); busy(btn,false); }
+}
+async function delDemande(btn){
+  if(!confirmArm(btn)) return;
+  try{ await api('delete',{code:batCode(),user:batNom(),id:CUR.demande.id}); DIRTY=false; toast('Demande supprimée'); LISTE=[]; go('#/bat'); }
+  catch(e){ toast(e.message,1); }
+}
+function modal(html,onOk){
+  const ov=document.createElement('div'); ov.className='ov';
+  ov.innerHTML=`<div class="modal">${html}<div class="mact"><button class="btn" data-x>Annuler</button><button class="btn pri" data-ok>Valider</button></div></div>`;
+  ov.addEventListener('click',e=>{ if(e.target===ov||e.target.dataset.x!==undefined) ov.remove(); });
+  ov.querySelector('[data-ok]').onclick=async e=>{ busy(e.target,true,'…'); try{await onOk(ov)}catch(er){toast(er.message,1);busy(e.target,false)} };
+  document.body.appendChild(ov);
+  const f=ov.querySelector('textarea,input'); f&&f.focus();
+}
+
+/* ======================= IMPRESSION / PDF ======================= */
+function printHtml(d){
+  return `<div class="pr-head"><img src="../logo.png" alt=""><h1>Formulaire de demande de travaux<small>${esc(d.numero||'Brouillon')}${d.statut?' · '+esc(d.statut):''} · imprimé le ${fD(today())}</small></h1></div>
+  <table><thead><tr><th></th><th>A remplir par le Demandeur</th><th>A remplir par le Bâtiment</th></tr></thead><tbody>
+  ${SECTIONS.map(s=>`<tr><th class="s" colspan="3">${esc(s.t)}</th></tr>`+s.f.map(f=>{
+    let v=valText(d,f).txt;
+    if(f.type==='checks') v=f.opts.map(o=>{const m=f.more&&f.more[o];return (splitL(d[f.k]).includes(o)?'☑ ':'☐ ')+o+(m&&d[m.k]?' : '+d[m.k]:'')}).join('\n');
+    return `<tr><td class="l">${esc(f.l)}</td><td>${esc(v)}</td><td>${esc(d['b_'+f.k]||'')}</td></tr>`;}).join('')).join('')}
+  ${d.statut?`<tr><th class="s" colspan="3">Traitement Bâtiment</th></tr>
+  <tr><td class="l">Statut</td><td colspan="2">${esc(d.statut)}${d.priorite?' · priorité '+esc(d.priorite):''}</td></tr>
+  <tr><td class="l">Pris en charge par</td><td colspan="2">${esc(d.chargeDe||'')}</td></tr>
+  <tr><td class="l">Date d’intervention prévue</td><td colspan="2">${fD(d.datePrevue)}</td></tr>`:''}
+  </tbody></table><div class="foot">Demande de travaux Eurexpo – Service Bâtiment${d.creeLe?' · déposée le '+fDT(d.creeLe):''}</div>`;
+}
+function printFiche(){ $('#print').innerHTML=printHtml(CUR.demande); setTimeout(()=>window.print(),150); }
+function previewPrint(){ const o=readForm(); o.fichiers=Object.entries(FILES).flatMap(([cat,l])=>l.map(f=>({cat,nom:f.name,url:'#'}))); $('#print').innerHTML=printHtml(o); setTimeout(()=>window.print(),150); }
+
+route();
+</script>
+</body>
+</html>

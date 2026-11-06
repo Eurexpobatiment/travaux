@@ -1,0 +1,145 @@
+rules_version = '2';
+// Appli Équipe + Demandes de travaux – Eurexpo · règles de sécurité Firestore (projet equipe-batiment)
+// À coller dans la console Firebase › Firestore Database › Règles, puis « Publier ».
+// Remplacer VOTRE_EMAIL par l'adresse du propriétaire (en minuscules).
+service cloud.firestore {
+  match /databases/{db}/documents {
+
+    function signedIn() { return request.auth != null && request.auth.token.email_verified == true; }
+    function myEmail() { return request.auth.token.email.lower(); }
+    function isOwner() { return signedIn() && myEmail() == 'VOTRE_EMAIL'; }
+    function accPath() { return /databases/$(db)/documents/Acces/$(myEmail()); }
+    function hasAcc() { return signedIn() && exists(accPath()) && get(accPath()).data.actif != 'non'; }
+    function member() { return isOwner() || hasAcc(); }
+    function myNom() { return get(accPath()).data.nom; }
+    function admin() { return isOwner() || (hasAcc() && get(accPath()).data.role == 'Responsable'); }
+    function small() { return request.resource.data.keys().size() <= 40; }
+
+    // Données partagées par toute l'équipe
+    match /{col}/{id} {
+      allow read: if member() && col in ['Memos', 'Nacelle', 'Regisseurs', 'Cloisons', 'EDL', 'BudgetLignes', 'BudgetMvts',
+                                          'Inventaire', 'SAP', 'Chantiers', 'Drapeaux', 'Pavoisements', 'Clefs', 'ClefsPrets', 'Documents'];
+      allow create, update: if member() && small() && col in ['Memos', 'Nacelle', 'Regisseurs', 'Cloisons', 'EDL', 'BudgetLignes', 'BudgetMvts',
+                                          'Inventaire', 'SAP', 'Chantiers', 'Drapeaux', 'Pavoisements', 'Clefs', 'ClefsPrets', 'Documents']
+                            && (isOwner() || request.resource.data.majPar == myNom());
+      // « J'ai lu » sur un mémo : seule la liste des lecteurs change
+      allow update: if member() && col == 'Memos' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['luPar']);
+      allow delete: if member() && col in ['Memos', 'Nacelle', 'Regisseurs', 'Cloisons', 'EDL', 'BudgetLignes', 'BudgetMvts',
+                                          'Inventaire', 'SAP', 'Chantiers', 'Drapeaux', 'Pavoisements', 'Clefs', 'ClefsPrets', 'Documents'];
+    }
+
+    // Tâches : les tâches perso ne sont visibles et modifiables que par leur auteur
+    match /Taches/{id} {
+      allow read: if member() && (resource.data.prive == 'non' || (resource.data.prive == 'oui' && resource.data.creePar == myNom()));
+      allow create: if member() && small() && (isOwner() || (
+                      request.resource.data.majPar == myNom() && request.resource.data.creePar == myNom()
+                      && request.resource.data.prive in ['oui', 'non']));
+      allow update: if member() && small() && (isOwner() || (
+                      request.resource.data.majPar == myNom()
+                      && request.resource.data.creePar == resource.data.creePar
+                      && request.resource.data.prive in ['oui', 'non']
+                      && (resource.data.prive == 'non' || resource.data.creePar == myNom())
+                      && (request.resource.data.prive == 'non' || request.resource.data.creePar == myNom())));
+      allow delete: if member() && (resource.data.prive == 'non' || resource.data.creePar == myNom());
+    }
+
+    // Commentaires : ceux d'une tâche perso suivent la tâche
+    match /Commentaires/{id} {
+      allow read: if member() && (resource.data.prive == 'non' || (resource.data.prive == 'oui' && resource.data.proprio == myNom()));
+      allow create: if member() && small() && (isOwner() || (
+                      request.resource.data.auteur == myNom()
+                      && ((request.resource.data.prive == 'non' && request.resource.data.proprio == '')
+                          || (request.resource.data.prive == 'oui' && request.resource.data.proprio == myNom()))));
+      allow update: if member() && small() && resource.data.auteur == myNom()
+                    && request.resource.data.prive == resource.data.prive && request.resource.data.proprio == resource.data.proprio;
+      allow delete: if member() && (resource.data.prive == 'non' || resource.data.proprio == myNom());
+    }
+
+    // Équipe et droits d'accès : modifiables par les responsables seulement
+    match /Equipe/{id} {
+      allow read: if member();
+      allow write: if admin();
+    }
+    match /Acces/{email} {
+      allow read: if (signedIn() && email == myEmail()) || member();
+      allow write: if admin();
+    }
+
+    // Journal : chacun ajoute ses lignes, les responsables le consultent
+    match /Journal/{id} {
+      allow create: if member() && (isOwner() || request.resource.data.auteur == myNom());
+      allow read: if admin();
+    }
+
+    // Verrou de la nacelle (évite deux réservations simultanées)
+    match /Verrous/{id} {
+      allow read, write: if member();
+    }
+      // ================= Demandes de travaux (appli « travaux ») =================
+    // Le demandeur n'a pas de compte : sa demande est rangée sous une clé secrète (l'identifiant du document),
+    // qu'on ne peut que lire directement (pas de liste). Le service Bâtiment se connecte avec son compte Équipe.
+    function dtTxt(d, k, mini, maxi) { return d[k] is string && d[k].size() >= mini && d[k].size() <= maxi; }
+    function dtSeqOk(d) {
+      let p = /databases/$(db)/documents/Compteurs/$('dt-' + d.annee);
+      return d.seq is int && getAfter(p).data.n == d.seq
+        && ((!exists(p) && d.seq == 1) || (exists(p) && get(p).data.n + 1 == d.seq));
+    }
+    function dtNouvelle(cle) {
+      let d = request.resource.data;
+      return cle.matches('[0-9a-f]{32}') && d.cle == cle
+        && d.keys().hasOnly([
+        'id', 'numero', 'seq', 'annee', 'cle', 'creeLe', 'majLe', 'majPar', 'statut', 'fichiers', 'demandeur', 'service',
+        'email', 'telephone', 'dateDemande', 'lieu', 'intitule', 'description', 'motifs', 'types', 'typeAutre', 'objectif',
+        'resultat', 'contraintes', 'horairesPrecis', 'delaisPrecis', 'contrainteAutre', 'processus', 'besoinAnnexe', 'coloris',
+        'materiaux', 'references', 'dateDebut', 'dateFin', 'dateImperative', 'impact', 'impactPrecis', 'budget', 'servicePayeur',
+        'budgetStatut', 'devis', 'responsable', 'referent', 'pjPlans', 'pjPhotos', 'pjCroquis', 'pjAutres'])
+        && d.statut == 'Nouvelle' && d.fichiers == '[]'
+        && d.annee == string(request.time.year()) && dtSeqOk(d)
+        && d.numero is string && d.numero.matches('DT-' + d.annee + '-0*' + string(d.seq))
+        && dtTxt(d, 'id', 10, 10) && dtTxt(d, 'demandeur', 1, 500) && dtTxt(d, 'intitule', 1, 500)
+        && (!('description' in d) || dtTxt(d, 'description', 0, 5000));
+    }
+
+    match /Demandes/{cle} {
+      allow get: if true;                 // avec la clé secrète du lien de suivi
+      allow list: if member();
+      allow create: if (admin() && request.resource.data.cle == cle) || dtNouvelle(cle);
+      allow update: if admin()
+                    || (member() && request.resource.data.keys().size() <= 140
+                        && request.resource.data.cle == resource.data.cle && request.resource.data.seq == resource.data.seq
+                        && request.resource.data.numero == resource.data.numero && request.resource.data.majPar == myNom())
+                    // le demandeur ajoute des pièces jointes
+                    || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fichiers', 'majLe'])
+                        && request.resource.data.fichiers is string && request.resource.data.fichiers.size() <= 100000);
+      allow delete: if member();
+
+      // Échanges : le demandeur ne voit que les messages publics
+      match /Suivi/{sid} {
+        allow get, list: if member() || resource.data.public == 'oui';
+        allow create: if request.resource.data.keys().hasOnly(['id', 'demandeId', 'date', 'auteur', 'type', 'texte', 'public'])
+                      && request.resource.data.id == sid && dtTxt(request.resource.data, 'texte', 1, 3000)
+                      && dtTxt(request.resource.data, 'auteur', 1, 500)
+                      && existsAfter(/databases/$(db)/documents/Demandes/$(cle))
+                      && (admin()
+                          || (member() && request.resource.data.auteur == myNom() && request.resource.data.public in ['oui', 'non']
+                              && request.resource.data.type in ['statut', 'batiment', 'fichier'])
+                          || (request.resource.data.public == 'oui' && (request.resource.data.type in ['demandeur', 'fichier']
+                              || (request.resource.data.type == 'statut' && request.resource.data.texte == 'Demande déposée'))));
+        allow update, delete: if member();
+      }
+    }
+
+    // Note interne du Bâtiment : jamais visible par le demandeur
+    match /DemandesInt/{cle} {
+      allow read, write: if member();
+    }
+
+    // Numérotation DT-AAAA-NNN : le compteur n'avance que d'un cran à la fois
+    match /Compteurs/{c} {
+      allow get: if true;
+      allow create: if c.matches('dt-[0-9]{4}') && request.resource.data.keys().hasOnly(['n'])
+                    && (request.resource.data.n == 1 || admin());
+      allow update: if request.resource.data.keys().hasOnly(['n']) && (request.resource.data.n == resource.data.n + 1 || admin());
+    }
+  }
+}
