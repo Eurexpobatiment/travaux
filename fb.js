@@ -33,7 +33,8 @@ const CLES = new Map(); // id court → clé (espace Bâtiment)
 export function init(cfg) {
   CFG = cfg;
   app = initializeApp(cfg.firebase);
-  auth = A.getAuth(app);
+  // Connexion partagée entre toutes les applis eurexpobatiment.github.io : même rangement partout (sinon elles se « volent » la session)
+  try { auth = A.initializeAuth(app, { persistence: [A.browserLocalPersistence, A.indexedDBLocalPersistence] }); } catch (e) { auth = A.getAuth(app); }
   db = F.getFirestore(app);
 }
 
@@ -109,7 +110,7 @@ export const whoami = () => ({ nom: me, email: meEmail, role: meRole });
 /* cb({etat, email, nom, role}) · etat : 'deconnecte' | 'non-verifie' | 'sans-acces' | 'ok' */
 export function onAuth(cb) {
   A.onAuthStateChanged(auth, async u => {
-    if (!u) { me = ''; meEmail = ''; meRole = ''; return cb({ etat: 'deconnecte' }); }
+    if (!u || u.isAnonymous) { me = ''; meEmail = ''; meRole = ''; return cb({ etat: 'deconnecte' }); } // anonyme = session des applis de saisie
     meEmail = String(u.email || '').toLowerCase();
     if (!u.emailVerified) {
       await u.reload().catch(() => {});
