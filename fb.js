@@ -10,6 +10,7 @@ const V = '10.14.1';
 const { initializeApp } = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`);
 const A = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-auth.js`);
 const F = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`);
+const S = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-storage.js`);
 /* App Check (Fraud Defense / reCAPTCHA Enterprise) : prouve à Firebase que les requêtes viennent bien de nos pages.
    Sans réseau ou si le module ne se charge pas, l'appli continue normalement. */
 const AC_SITE = '6Le3lBguAAAAAGb774RgCJp5Gd_jfG38Tks9out3';
@@ -31,7 +32,7 @@ const SUIVI_BAT = ['statut', 'priorite', 'chargeDe', 'datePrevue'];
 const STATUTS = ['Nouvelle', "À l'étude", 'Chiffrage', 'Validée', 'Planifiée', 'En cours', 'Terminée', 'Refusée'];
 const LONGS = ['description', 'objectif', 'resultat', 'processus', 'besoinAnnexe', 'references'];
 
-let app, auth, db, CFG;
+let app, auth, db, st, CFG;
 let me = '', meEmail = '', meRole = '';
 const CLES = new Map(); // id court → clé (espace Bâtiment)
 
@@ -42,6 +43,7 @@ export function init(cfg) {
   // Connexion partagée entre toutes les applis eurexpobatiment.github.io : même rangement partout (sinon elles se « volent » la session)
   try { auth = A.initializeAuth(app, { persistence: [A.browserLocalPersistence, A.indexedDBLocalPersistence] }); } catch (e) { auth = A.getAuth(app); }
   db = F.getFirestore(app);
+  st = S.getStorage(app);
 }
 
 /* ---------- Outils ---------- */
@@ -56,7 +58,11 @@ const MSG = {
   'auth/network-request-failed': 'Pas de connexion internet',
   'permission-denied': 'Accès refusé',
   'unavailable': 'Serveur injoignable (pas de connexion ?)',
-  'not-found': 'Demande introuvable'
+  'not-found': 'Demande introuvable',
+  'storage/unauthorized': 'Accès refusé à la pièce jointe',
+  'storage/retry-limit-exceeded': 'Envoi du fichier interrompu (connexion ?)',
+  'storage/quota-exceeded': 'Espace de stockage plein',
+  'storage/canceled': 'Envoi annulé'
 };
 export const errMsg = e => MSG[e && e.code] || (e && e.message) || String(e);
 const wrap = p => p.catch(e => { throw new Error(errMsg(e)); });
@@ -272,24 +278,30 @@ export async function comment(p) {
   return Object.assign(o, { warn });
 }
 
-/* Pièces jointes : gardées dans Firebase (Demandes/{cle}/Fichiers/{fid} + morceaux Parts/{i}),
- * en attendant que le Bâtiment les enregistre dans le dossier de son choix. Rien n'est envoyé dans Drive. */
-const PART = 700000; // caractères base64 par morceau (un document Firestore fait 1 Mo au plus)
+/* Pièces jointes : gardées dans Firebase Storage (demandes/{cle}/{fid}, bucket à Paris),
+ * en attendant que le Bâtiment les enregistre dans le dossier de son choix. Rien n'est envoyé dans Drive.
+ * Les pièces jointes plus anciennes (avant le 10 nov. 2026) restent lisibles dans Firestore (Fichiers/{fid}/Parts). */
+const pjRef = (cle, fid) => S.ref(st, `demandes/${cle}/${fid}`);
 async function stocker(cle, f, auteur, t) {
   const fid = hex(8), data = String(f.data || '');
-  const nb = Math.max(1, Math.ceil(data.length / PART));
-  const fref = F.doc(db, 'Demandes', cle, 'Fichiers', fid);
-  await wrap(F.setDoc(fref, { id: fid, nom: clean(f.name, 150) || 'fichier', type: clean(f.type, 100) || 'application/octet-stream', parts: nb, taille: Math.round(data.length * 0.75), le: t }));
-  for (let i = 0; i < nb; i += 8) {
-    const b = F.writeBatch(db);
-    for (let j = i; j < Math.min(nb, i + 8); j++) b.set(F.doc(db, 'Demandes', cle, 'Fichiers', fid, 'Parts', String(j)), { i: j, data: data.slice(j * PART, (j + 1) * PART) });
-    await wrap(b.commit());
-  }
-  return { cat: clean(f.cat, 30) || 'Autres', nom: clean(f.name, 150) || 'fichier', fid, type: clean(f.type, 100), par: auteur, le: t, taille: Math.round(data.length * 0.75) };
+  const nom = clean(f.name, 150) || 'fichier', type = clean(f.type, 100) || 'application/octet-stream';
+  await wrap(S.uploadString(pjRef(cle, fid), data, 'base64', { contentType: type, customMetadata: { nom: encodeURIComponent(nom) } }));
+  return { cat: clean(f.cat, 30) || 'Autres', nom, fid, type: clean(f.type, 100), par: auteur, le: t, taille: Math.round(data.length * 0.75), st: 1 };
+}
+async function effacerPj(cle, fid) {
+  try { await S.deleteObject(pjRef(cle, fid)); } catch (e) { if (e && e.code !== 'storage/object-not-found') throw new Error(errMsg(e)); }
 }
 
 // Contenu d'une pièce jointe (Blob)
 export async function fichier(cle, fid) {
+  try {
+    const r = pjRef(cle, fid);
+    const [blob, md] = await Promise.all([S.getBlob(r), S.getMetadata(r)]);
+    let nom = (md.customMetadata && md.customMetadata.nom) || 'fichier';
+    try { nom = decodeURIComponent(nom); } catch (e) {}
+    return { blob, nom };
+  } catch (e) { if (!e || e.code !== 'storage/object-not-found') throw new Error(errMsg(e)); }
+  // ancienne pièce jointe, gardée en morceaux dans Firestore
   const m = await wrap(F.getDoc(F.doc(db, 'Demandes', cle, 'Fichiers', fid)));
   if (!m.exists()) throw new Error('Fichier introuvable (retiré de l\'appli ?)');
   const q = await wrap(F.getDocs(F.collection(db, 'Demandes', cle, 'Fichiers', fid, 'Parts')));
@@ -311,6 +323,7 @@ export async function classer(id, fids, dossier, retirer) {
     tx.update(dRef(cle), { fichiers: JSON.stringify(L), majLe: t, majPar: me });
   }));
   if (retirer) for (const fid of fids) {
+    await effacerPj(cle, fid);
     const q = await wrap(F.getDocs(F.collection(db, 'Demandes', cle, 'Fichiers', fid, 'Parts')));
     const b = F.writeBatch(db);
     q.docs.forEach(d => b.delete(d.ref));
@@ -346,7 +359,8 @@ export async function remove(id) {
   const cle = await cleOf(id);
   const s = await wrap(F.getDoc(dRef(cle)));
   const q = await wrap(F.getDocs(F.collection(db, 'Demandes', cle, 'Suivi')));
-  // pièces jointes gardées dans l'appli (morceaux par morceaux : un envoi peut être lourd)
+  // pièces jointes gardées dans l'appli : Storage, puis anciennes en morceaux dans Firestore
+  if (s.exists()) for (const f of parse(s.data().fichiers)) if (f.fid) await effacerPj(cle, f.fid);
   const fq = await wrap(F.getDocs(F.collection(db, 'Demandes', cle, 'Fichiers')));
   for (const f of fq.docs) {
     const pq = await wrap(F.getDocs(F.collection(db, 'Demandes', cle, 'Fichiers', f.id, 'Parts')));

@@ -1,0 +1,26 @@
+rules_version = '2';
+// Firebase Storage – projet equipe-batiment · pièces jointes des demandes de travaux
+// Mêmes droits que la fiche dans Firestore : le Bâtiment (comptes de l'appli Équipe) et le demandeur de la fiche.
+// Les fichiers restent ici jusqu'à ce que le Bâtiment les range dans le dossier de son choix (et coche « retirer de l'appli »).
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() { return request.auth != null && request.auth.token.email_verified == true; }
+    function myEmail() { return request.auth.token.email.lower(); }
+    function isOwner() { return signedIn() && myEmail() == 'herve.desgranges@gl-events.com'; }
+    function accPath() { return /databases/(default)/documents/Acces/$(myEmail()); }
+    function member() { return isOwner() || (signedIn() && firestore.exists(accPath()) && firestore.get(accPath()).data.actif != 'non'); }
+    function mien(cle) { return signedIn() && firestore.get(/databases/(default)/documents/Demandes/$(cle)).data.get('compte', '') == myEmail(); }
+
+    // demandes/{clé de la demande}/{identifiant du fichier}
+    match /demandes/{cle}/{fid} {
+      allow read: if member() || mien(cle);
+      allow create: if (member() || mien(cle)) && fid.matches('^[0-9a-f]{8,32}$')
+                    && request.resource.size <= 25 * 1024 * 1024;
+      allow delete: if member();
+    }
+
+    match /{autre=**} {
+      allow read, write: if false;
+    }
+  }
+}
