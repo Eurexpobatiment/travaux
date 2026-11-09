@@ -10,6 +10,11 @@ const V = '10.14.1';
 const { initializeApp } = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`);
 const A = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-auth.js`);
 const F = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`);
+/* App Check (Fraud Defense / reCAPTCHA Enterprise) : prouve à Firebase que les requêtes viennent bien de nos pages.
+   Sans réseau ou si le module ne se charge pas, l'appli continue normalement. */
+const AC_SITE = '6Le3lBguAAAAAGb774RgCJp5Gd_jfG38Tks9out3';
+const AC = await Promise.race([import(`https://www.gstatic.com/firebasejs/${V}/firebase-app-check.js`), new Promise(r => setTimeout(() => r(null), 4000))]).catch(() => null);
+function appCheck(app) { if (!AC) return; try { AC.initializeAppCheck(app, { provider: new AC.ReCaptchaEnterpriseProvider(AC_SITE), isTokenAutoRefreshEnabled: true }); } catch (e) { console.warn('App Check :', e); } }
 
 const CHAMPS = [
   'demandeur', 'service', 'email', 'telephone', 'dateDemande', 'lieu',
@@ -33,6 +38,7 @@ const CLES = new Map(); // id court → clé (espace Bâtiment)
 export function init(cfg) {
   CFG = cfg;
   app = initializeApp(cfg.firebase);
+  appCheck(app);
   // Connexion partagée entre toutes les applis eurexpobatiment.github.io : même rangement partout (sinon elles se « volent » la session)
   try { auth = A.initializeAuth(app, { persistence: [A.browserLocalPersistence, A.indexedDBLocalPersistence] }); } catch (e) { auth = A.getAuth(app); }
   db = F.getFirestore(app);
