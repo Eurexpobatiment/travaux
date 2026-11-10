@@ -135,7 +135,7 @@ export function onAuth(cb) {
       if (!auth.currentUser || !auth.currentUser.emailVerified) return cb({ etat: 'non-verifie', email: meEmail });
     }
     try { const r = await u.getIdTokenResult(); if (r.claims.email_verified !== true) await u.getIdToken(true); } catch (e) {}
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < 5; i++) {
       try {
         const s = await F.getDoc(F.doc(db, 'Acces', meEmail));
         const a = s.exists() ? s.data() : null;
@@ -143,7 +143,11 @@ export function onAuth(cb) {
         me = ''; meRole = '';
         return cb(domaineOk(meEmail) ? { etat: 'demandeur', email: meEmail } : { etat: 'sans-acces', email: meEmail });
       } catch (e) {
-        if (e.code === 'permission-denied' && !i) { await u.getIdToken(true).catch(() => {}); continue; }
+        // Refus passager (jeton expiré pendant que l'onglet était en arrière-plan, réseau…) : jetons renouvelés, jusqu'à 5 essais espacés
+        if (i < 4 && auth.currentUser === u) {
+          if (e.code === 'permission-denied' || e.code === 'unauthenticated') { await u.getIdToken(true).catch(() => {}); if (acInst) await AC.getToken(acInst, true).catch(() => {}); }
+          await new Promise(r => setTimeout(r, 800 * 2 ** i)); continue;
+        }
         me = ''; meRole = '';
         return cb(domaineOk(meEmail) ? { etat: 'demandeur', email: meEmail } : { etat: 'sans-acces', email: meEmail, err: errMsg(e) });
       }
