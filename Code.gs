@@ -69,7 +69,18 @@ function doPost(e) {
   } catch (err) {
     return out_({ ok: false, error: 'Requête illisible' });
   }
+  AC_TOKEN = String(p.appCheck || '').slice(0, 4000);
   return handle_(p);
+}
+
+// Jeton App Check envoyé par l'appli : transmis à Firestore pour que les lectures du script passent
+// aussi quand le blocage App Check sera activé (depuis le 10 nov. 2026).
+let AC_TOKEN = '';
+function fsHeaders_(tok) {
+  const h = {};
+  if (tok) h.Authorization = 'Bearer ' + tok;
+  if (AC_TOKEN) h['X-Firebase-AppCheck'] = AC_TOKEN;
+  return h;
 }
 
 function handle_(p) {
@@ -460,8 +471,8 @@ function fbUrl_(p) {
 function fsGet_(path, tok) {
   const base = 'https://firestore.googleapis.com/v1/projects/' + FIREBASE_PROJECT + '/databases/(default)/documents/';
   const url = base + path.split('/').map(encodeURIComponent).join('/');
-  let r = UrlFetchApp.fetch(url, { headers: tok ? { Authorization: 'Bearer ' + tok } : {}, muteHttpExceptions: true });
-  if (!tok && (r.getResponseCode() === 401 || r.getResponseCode() === 403)) r = UrlFetchApp.fetch(url + '?key=' + FIREBASE_KEY, { muteHttpExceptions: true });
+  let r = UrlFetchApp.fetch(url, { headers: fsHeaders_(tok), muteHttpExceptions: true });
+  if (!tok && (r.getResponseCode() === 401 || r.getResponseCode() === 403)) r = UrlFetchApp.fetch(url + '?key=' + FIREBASE_KEY, { headers: fsHeaders_(''), muteHttpExceptions: true });
   if (r.getResponseCode() === 404) throw new Error('Demande introuvable');
   if (r.getResponseCode() !== 200) throw new Error('Accès refusé');
   return fsObj_(JSON.parse(r.getContentText()));

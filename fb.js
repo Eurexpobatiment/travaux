@@ -15,7 +15,13 @@ const S = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-storage
    Sans réseau ou si le module ne se charge pas, l'appli continue normalement. */
 const AC_SITE = '6Le3lBguAAAAAGb774RgCJp5Gd_jfG38Tks9out3';
 const AC = await Promise.race([import(`https://www.gstatic.com/firebasejs/${V}/firebase-app-check.js`), new Promise(r => setTimeout(() => r(null), 4000))]).catch(() => null);
-function appCheck(app) { if (!AC) return; try { AC.initializeAppCheck(app, { provider: new AC.ReCaptchaEnterpriseProvider(AC_SITE), isTokenAutoRefreshEnabled: true }); } catch (e) { console.warn('App Check :', e); } }
+let acInst = null;
+function appCheck(app) { if (!AC) return; try { acInst = AC.initializeAppCheck(app, { provider: new AC.ReCaptchaEnterpriseProvider(AC_SITE), isTokenAutoRefreshEnabled: true }); } catch (e) { console.warn('App Check :', e); } }
+// Jeton App Check transmis au script Google (e-mails) : il le renvoie à Firestore quand il relit les données
+async function acJeton() {
+  if (!acInst) return '';
+  try { const r = await Promise.race([AC.getToken(acInst, false), new Promise(ok => setTimeout(() => ok(null), 4000))]); return (r && r.token) || ''; } catch (e) { return ''; }
+}
 
 const CHAMPS = [
   'demandeur', 'service', 'email', 'telephone', 'dateDemande', 'lieu',
@@ -82,7 +88,7 @@ const appUrl = () => location.href.split('#')[0];
 // Appel au script Google (e-mails, pièces jointes)
 async function script(action, p) {
   if (!CFG.apiUrl) throw new Error('Adresse du script Google non renseignée');
-  const r = await fetch(CFG.apiUrl, { method: 'POST', body: JSON.stringify(Object.assign({ action, appUrl: appUrl() }, p)) });
+  const r = await fetch(CFG.apiUrl, { method: 'POST', body: JSON.stringify(Object.assign({ action, appUrl: appUrl(), appCheck: await acJeton() }, p)) });
   if (!r.ok) throw new Error('Serveur Google injoignable (' + r.status + ')');
   const j = await r.json();
   if (!j.ok) throw new Error(j.error || 'Erreur du serveur Google');
