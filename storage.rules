@@ -1,5 +1,6 @@
 rules_version = '2';
-// Firebase Storage – projet equipe-batiment · pièces jointes des demandes de travaux
+// Firebase Storage – projet equipe-batiment · pièces jointes des demandes de travaux + devis des benchmarks (appli Équipe)
+// Fichier commun aux deux applis : même contenu dans les dépôts « travaux » et « equipe ».
 // Mêmes droits que la fiche dans Firestore : le Bâtiment (comptes de l'appli Équipe) et le demandeur de la fiche.
 // Les fichiers restent ici jusqu'à ce que le Bâtiment les range dans le dossier de son choix (et coche « retirer de l'appli »).
 service firebase.storage {
@@ -17,6 +18,19 @@ service firebase.storage {
       allow create: if (member() || mien(cle)) && fid.matches('^[0-9a-f]{8,32}$')
                     && request.resource.size <= 25 * 1024 * 1024;
       allow delete: if member();
+    }
+
+    // benchmarks/{id du benchmark}/{identifiant du fichier} : devis déposés dans l'onglet ⚖️ Benchmark de l'appli Équipe
+    // Mêmes droits que la fiche Benchmarks dans Firestore : son propriétaire et les membres avec qui il la partage.
+    function bmAcces(bid) {
+      let b = firestore.get(/databases/(default)/documents/Benchmarks/$(bid)).data;
+      let n = firestore.get(accPath()).data.nom;
+      return b.proprio == n || n in b.get('acces', []);
+    }
+    match /benchmarks/{bid}/{fid} {
+      allow read, delete: if member() && bmAcces(bid);
+      allow create: if member() && bmAcces(bid) && fid.matches('^[0-9a-f]{8,32}$')
+                    && request.resource.size <= 25 * 1024 * 1024;
     }
 
     match /{autre=**} {
